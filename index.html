@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>netActiv</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    .logo-wrap {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .logo-wrap img {
+      animation: float 4s ease-in-out infinite;
+      max-width: 90vw;
+    }
+
+    @keyframes float {
+      0%   { transform: translateY(0px); }
+      50%  { transform: translateY(-18px); }
+      100% { transform: translateY(0px); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="logo-wrap">
+    <img src="nu_grey-logo.gif" alt="netActiv">
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, t = 0;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw() {
+      t += 0.008;
+
+      const rows = 60, cols = 80;
+      const cw = W / cols, ch = H / rows;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const wave =
+            Math.sin(c * 0.18 + t * 2.1) +
+            Math.sin(r * 0.22 + t * 1.7) +
+            Math.sin((c + r) * 0.12 + t * 1.3) +
+            Math.sin(Math.sqrt(
+              (c - cols / 2) ** 2 + (r - rows / 2) ** 2
+            ) * 0.25 - t * 1.9);
+
+          const hue = ((wave * 45 + t * 40) % 360 + 360) % 360;
+          const sat = 90 + Math.sin(wave + t) * 10;
+          const lit = 42 + Math.sin(wave * 0.5 + t * 0.7) * 12;
+
+          ctx.fillStyle = `hsl(${hue}, ${sat}%, ${lit}%)`;
+          ctx.fillRect(Math.floor(c * cw), Math.floor(r * ch),
+                       Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
