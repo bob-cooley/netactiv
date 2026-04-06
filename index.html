@@ -6,78 +6,29 @@
   <title>netActiv - Design, Usability, Presence. Flash / Web Development</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; width: 100vw; height: 100vh; }
-    canvas { display: block; position: fixed; inset: 0; }
 
-    .logo-wrap {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
+    body {
+      background: #000;
+      min-height: 100vh;
     }
 
-    .logo-wrap img {
-      width: 323px;
-      max-width: 90vw;
-      animation: float 4s ease-in-out infinite;
+    .grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
     }
 
-    @keyframes float {
-      0%   { transform: translateY(0px); }
-      50%  { transform: translateY(-14px); }
-      100% { transform: translateY(0px); }
+    .logo img {
+      width: 161px;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <canvas id="bg" aria-hidden="true"></canvas>
-  <div class="logo-wrap">
-    <img src="art/na-logo.svg" alt="netActiv">
+  <div class="grid">
+    <div class="logo">
+      <img src="art/na-logo.svg" alt="netActiv">
+    </div>
   </div>
-  <script>
-    const canvas = document.getElementById('bg');
-    const ctx = canvas.getContext('2d');
-    let width = 0;
-    let height = 0;
-    let backgroundTime = 0;
-    let lastFrame = 0;
-
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    function drawBackground(timestamp) {
-      const delta = lastFrame ? timestamp - lastFrame : 16;
-      lastFrame = timestamp;
-      backgroundTime += delta;
-
-      const time = backgroundTime * 0.0004;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, width, height);
-
-      for (let index = 0; index < 7; index += 1) {
-        const x = width / 2 + Math.sin(time * (0.7 + index * 0.13) + index * 1.1) * width * 0.5;
-        const y = height / 2 + Math.cos(time * (0.5 + index * 0.17) + index * 0.9) * height * 0.5;
-        const radius = Math.min(width, height) * 0.6;
-        const hue = (time * 40 + index * 51) % 360;
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-        gradient.addColorStop(0, `hsla(${hue}, 100%, 60%, 0.55)`);
-        gradient.addColorStop(1, `hsla(${hue}, 100%, 30%, 0)`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      requestAnimationFrame(drawBackground);
-    }
-
-    requestAnimationFrame(drawBackground);
-  </script>
 </body>
 </html>
