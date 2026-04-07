@@ -54,13 +54,14 @@
       p => p.x > CELL && p.x < W - CELL && p.y > CELL && p.y < H - CELL
     );
     const shuffled = interior.sort(() => Math.random() - 0.5);
-    glows = shuffled.slice(0, GLOW_N).map(pt => ({
+    glows = shuffled.slice(0, GLOW_N).map((pt, i) => ({
       x:       pt.x,
       y:       pt.y,
       phase:   Math.random() * Math.PI * 2,
       period:  6000 + Math.random() * 8000,  // 6–14 s — very slow breathing
       maxA:    0.10 + Math.random() * 0.18,  // soft ceiling — never dramatic
       radius:  50 + Math.random() * 60,      // diffuse, not tight
+      red:     i < 2,                        // 2 of 10 carry the brand red
     }));
   }
 
@@ -115,10 +116,13 @@
       const a = ((t * 0.5 + 0.5)) * g.maxA;
       if (a < 0.004) return;
 
+      const c0 = g.red ? `rgba(185,20,36,${a})`       : `rgba(205,215,225,${a})`;
+      const c1 = g.red ? `rgba(160,14,28,${a * 0.4})` : `rgba(190,205,218,${a * 0.4})`;
+      const c2 = g.red ? 'rgba(140,10,20,0)'           : 'rgba(190,205,218,0)';
       const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.radius);
-      grad.addColorStop(0,   `rgba(205,215,225,${a})`);
-      grad.addColorStop(0.5, `rgba(190,205,218,${a * 0.4})`);
-      grad.addColorStop(1,   'rgba(190,205,218,0)');
+      grad.addColorStop(0,   c0);
+      grad.addColorStop(0.5, c1);
+      grad.addColorStop(1,   c2);
 
       ctx.beginPath();
       ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
