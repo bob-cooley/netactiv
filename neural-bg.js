@@ -1,162 +1,128 @@
 (function () {
   const canvas = document.getElementById('neural-bg');
-  const ctx = canvas.getContext('2d');
-  let W, H, nodes, edges, pulses, rafId;
+  const ctx    = canvas.getContext('2d');
+  let W, H, intersections, glows, rafId;
 
-  // Network architecture — nodes per layer
-  const LAYERS = [3, 5, 8, 7, 9, 7, 8, 5, 3];
-  const PULSE_COUNT = 30;
-  const EDGE_PROB = 0.55;       // probability any two adjacent-layer nodes connect
-  const SKIP_PROB = 0.08;       // probability of skip-layer connections (residual)
+  const CELL       = 96;   // grid spacing (px)
+  const GLOW_N     = 10;   // simultaneous soft glows
+  const LINE_ALPHA = 0.048; // grid line opacity — barely there
+  const NODE_ALPHA = 0.10;  // tiny intersection dot opacity
+
+  // Translucent panels — static, aligned to grid, suggest layered data
+  // Defined as fractions; snapped to grid on build
+  const PANEL_DEFS = [
+    { fx: 0.52, fy: 0.04, fw: 0.44, fh: 0.54, a: 0.025 },
+    { fx: 0.07, fy: 0.44, fw: 0.36, fh: 0.50, a: 0.020 },
+    { fx: 0.60, fy: 0.65, fw: 0.30, fh: 0.30, a: 0.022 },
+  ];
+  let panels = [];
 
   // ── Build ──────────────────────────────────────────────────────────────────
   function build() {
-    nodes = [];
-    edges = [];
-    pulses = [];
+    intersections = [];
+    glows         = [];
+    panels        = [];
 
-    const nL = LAYERS.length;
-    const padX = Math.max(W * 0.07, 60);
-    const padY = Math.max(H * 0.12, 60);
-    const usableW = W - 2 * padX;
-    const usableH = H - 2 * padY;
+    // Center the grid on screen
+    const cols    = Math.ceil(W / CELL) + 1;
+    const rows    = Math.ceil(H / CELL) + 1;
+    const offsetX = ((W % CELL) / 2) || 0;
+    const offsetY = ((H % CELL) / 2) || 0;
 
-    // Create nodes per layer
-    const byLayer = LAYERS.map((count, li) => {
-      const x = padX + li * usableW / (nL - 1);
-      return Array.from({ length: count }, (_, ni) => {
-        const yBase = count > 1 ? padY + ni * usableH / (count - 1) : H / 2;
-        const node = {
-          x: x + (Math.random() - 0.5) * 14,
-          y: yBase + (Math.random() - 0.5) * (usableH / count * 0.2),
-          r: 1.8 + Math.random() * 1.4,
-          phase: Math.random() * Math.PI * 2,
-          glow: 0,
-          layer: li,
-        };
-        nodes.push(node);
-        return node;
-      });
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        intersections.push({
+          x: offsetX + c * CELL,
+          y: offsetY + r * CELL,
+        });
+      }
+    }
+
+    // Snap panels to grid edges for architectural precision
+    PANEL_DEFS.forEach(p => {
+      const rawX = p.fx * W, rawY = p.fy * H;
+      const rawW = p.fw * W, rawH = p.fh * H;
+      const x = offsetX + Math.round((rawX - offsetX) / CELL) * CELL;
+      const y = offsetY + Math.round((rawY - offsetY) / CELL) * CELL;
+      const w = Math.round(rawW / CELL) * CELL;
+      const h = Math.round(rawH / CELL) * CELL;
+      panels.push({ x, y, w, h, a: p.a });
     });
 
-    // Adjacent-layer edges
-    for (let li = 0; li < nL - 1; li++) {
-      byLayer[li].forEach(a => {
-        byLayer[li + 1].forEach(b => {
-          if (Math.random() < EDGE_PROB) {
-            edges.push({ a, b, alpha: 0.04 + Math.random() * 0.07 });
-          }
-        });
-      });
-    }
-
-    // Skip-layer (residual) edges — adds depth, breaks constellation look
-    for (let li = 0; li < nL - 2; li++) {
-      byLayer[li].forEach(a => {
-        byLayer[li + 2].forEach(b => {
-          if (Math.random() < SKIP_PROB) {
-            edges.push({ a, b, alpha: 0.02 + Math.random() * 0.03 });
-          }
-        });
-      });
-    }
-
-    // Seed pulses at staggered positions
-    for (let i = 0; i < PULSE_COUNT; i++) {
-      pulses.push(makePulse(Math.random()));
-    }
-  }
-
-  function makePulse(startT = 0) {
-    const edge = edges[Math.floor(Math.random() * edges.length)];
-    const red = Math.random() < 0.1; // ~10% use brand red
-    return {
-      edge,
-      t: startT,
-      speed: 0.0022 + Math.random() * 0.0028,
-      r: red ? 2.3 : 1.4,
-      red,
-      col: red ? '196,18,48' : '185,185,185',
-      alpha: red ? 0.85 : 0.55,
-    };
+    // Choose random intersections to glow — not too close to edges
+    const interior = intersections.filter(
+      p => p.x > CELL && p.x < W - CELL && p.y > CELL && p.y < H - CELL
+    );
+    const shuffled = interior.sort(() => Math.random() - 0.5);
+    glows = shuffled.slice(0, GLOW_N).map(pt => ({
+      x:       pt.x,
+      y:       pt.y,
+      phase:   Math.random() * Math.PI * 2,
+      period:  6000 + Math.random() * 8000,  // 6–14 s — very slow breathing
+      maxA:    0.10 + Math.random() * 0.18,  // soft ceiling — never dramatic
+      radius:  50 + Math.random() * 60,      // diffuse, not tight
+    }));
   }
 
   // ── Draw ───────────────────────────────────────────────────────────────────
   function draw(ts) {
     ctx.clearRect(0, 0, W, H);
 
-    // Background gradient
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#070707');
-    bg.addColorStop(1, '#111111');
-    ctx.fillStyle = bg;
+    // Matte black — flat, no gradient drama
+    ctx.fillStyle = '#090909';
     ctx.fillRect(0, 0, W, H);
 
-    // ── Edges ──
-    edges.forEach(e => {
-      ctx.beginPath();
-      ctx.moveTo(e.a.x, e.a.y);
-      ctx.lineTo(e.b.x, e.b.y);
-      ctx.strokeStyle = `rgba(140,140,140,${e.alpha})`;
+    // ── Translucent panels ──
+    panels.forEach(p => {
+      ctx.fillStyle = `rgba(200,205,210,${p.a})`;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      // Hair-line border — cold gray
+      ctx.strokeStyle = `rgba(190,200,210,0.07)`;
       ctx.lineWidth = 0.5;
-      ctx.stroke();
+      ctx.strokeRect(p.x, p.y, p.w, p.h);
     });
 
-    // ── Pulses ──
-    for (let i = pulses.length - 1; i >= 0; i--) {
-      const p = pulses[i];
-      p.t += p.speed;
+    // ── Grid ──
+    const cols    = Math.ceil(W / CELL) + 1;
+    const rows    = Math.ceil(H / CELL) + 1;
+    const offsetX = ((W % CELL) / 2) || 0;
+    const offsetY = ((H % CELL) / 2) || 0;
 
-      if (p.t >= 1) {
-        // Light up destination node
-        p.edge.b.glow = Math.min(1, p.edge.b.glow + 0.7);
-        pulses[i] = makePulse(0);
-        continue;
-      }
+    ctx.strokeStyle = `rgba(155,162,170,${LINE_ALPHA})`;
+    ctx.lineWidth   = 0.5;
 
-      const ex = p.edge.a.x, ey = p.edge.a.y;
-      const tx = p.edge.b.x, ty = p.edge.b.y;
-      const x = ex + (tx - ex) * p.t;
-      const y = ey + (ty - ey) * p.t;
-
-      // Trail dot
-      if (p.t > 0.06) {
-        const px = ex + (tx - ex) * (p.t - 0.06);
-        const py = ey + (ty - ey) * (p.t - 0.06);
-        ctx.beginPath();
-        ctx.arc(px, py, p.r * 0.45, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.col},${p.alpha * 0.25})`;
-        ctx.fill();
-      }
-
-      // Main dot
-      ctx.beginPath();
-      ctx.arc(x, y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${p.col},${p.alpha})`;
-      ctx.fill();
+    for (let c = 0; c < cols; c++) {
+      const x = offsetX + c * CELL;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let r = 0; r < rows; r++) {
+      const y = offsetY + r * CELL;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     }
 
-    // ── Nodes ──
-    nodes.forEach(n => {
-      n.glow *= 0.93;
-      const breathe = Math.sin(ts * 0.0007 + n.phase) * 0.12 + 0.88;
-      const a = 0.28 + breathe * 0.18 + n.glow * 0.54;
-      const r = n.r * (1 + n.glow * 0.7);
+    // ── Intersection micro-dots ── (barely visible data-point suggestion)
+    ctx.fillStyle = `rgba(170,178,186,${NODE_ALPHA})`;
+    intersections.forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    });
 
-      // Glow halo
-      if (n.glow > 0.06) {
-        const gr = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 7);
-        gr.addColorStop(0, `rgba(180,180,180,${n.glow * 0.18})`);
-        gr.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, r * 7, 0, Math.PI * 2);
-        ctx.fillStyle = gr;
-        ctx.fill();
-      }
+    // ── Slow node glows ──
+    glows.forEach(g => {
+      // Sine wave: 0→1→0, very long period, offset by phase
+      const t = Math.sin((ts / g.period) * Math.PI * 2 + g.phase);
+      const a = ((t * 0.5 + 0.5)) * g.maxA;
+      if (a < 0.004) return;
+
+      const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.radius);
+      grad.addColorStop(0,   `rgba(205,215,225,${a})`);
+      grad.addColorStop(0.5, `rgba(190,205,218,${a * 0.4})`);
+      grad.addColorStop(1,   'rgba(190,205,218,0)');
 
       ctx.beginPath();
-      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(195,195,195,${a})`;
+      ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
       ctx.fill();
     });
 
@@ -169,16 +135,15 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       cancelAnimationFrame(rafId);
-      W = canvas.width = window.innerWidth;
+      W = canvas.width  = window.innerWidth;
       H = canvas.height = window.innerHeight;
       build();
       rafId = requestAnimationFrame(draw);
-    }, 100);
+    }, 120);
   }
 
   window.addEventListener('resize', resize);
-
-  W = canvas.width = window.innerWidth;
+  W = canvas.width  = window.innerWidth;
   H = canvas.height = window.innerHeight;
   build();
   rafId = requestAnimationFrame(draw);
