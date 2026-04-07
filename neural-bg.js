@@ -49,20 +49,38 @@
       panels.push({ x, y, w, h, a: p.a });
     });
 
-    // Choose random intersections to glow — not too close to edges
-    const interior = intersections.filter(
-      p => p.x > CELL && p.x < W - CELL && p.y > CELL && p.y < H - CELL
-    );
-    const shuffled = interior.sort(() => Math.random() - 0.5);
-    glows = shuffled.slice(0, GLOW_N).map((pt, i) => ({
-      x:       pt.x,
-      y:       pt.y,
-      phase:   Math.random() * Math.PI * 2,
-      period:  6000 + Math.random() * 8000,  // 6–14 s — very slow breathing
-      maxA:    0.10 + Math.random() * 0.18,  // soft ceiling — never dramatic
-      radius:  50 + Math.random() * 60,      // diffuse, not tight
-      red:     i < 2,                        // 2 of 10 carry the brand red
-    }));
+    // Divide viewport into a 5×2 grid of zones — one glow per zone.
+    // This guarantees spatial distribution while keeping positions random.
+    // Zones 1 and 7 (non-adjacent, diagonally spread) carry the brand red.
+    const ZONE_COLS = 5, ZONE_ROWS = 2;
+    const RED_ZONES = new Set([1, 7]); // zone indices for red glows
+    const zoneW = W / ZONE_COLS;
+    const zoneH = H / ZONE_ROWS;
+    const pad   = CELL * 1.2; // keep away from zone edges
+
+    glows = [];
+    for (let zr = 0; zr < ZONE_ROWS; zr++) {
+      for (let zc = 0; zc < ZONE_COLS; zc++) {
+        const zoneIndex = zr * ZONE_COLS + zc;
+        // Find intersections inside this zone with padding
+        const zx0 = zoneW * zc + pad, zx1 = zoneW * (zc + 1) - pad;
+        const zy0 = zoneH * zr + pad, zy1 = zoneH * (zr + 1) - pad;
+        const candidates = intersections.filter(
+          p => p.x >= zx0 && p.x <= zx1 && p.y >= zy0 && p.y <= zy1
+        );
+        if (!candidates.length) continue;
+        const pt = candidates[Math.floor(Math.random() * candidates.length)];
+        glows.push({
+          x:      pt.x,
+          y:      pt.y,
+          phase:  Math.random() * Math.PI * 2,
+          period: 6000 + Math.random() * 8000,
+          maxA:   0.10 + Math.random() * 0.18,
+          radius: 50 + Math.random() * 60,
+          red:    RED_ZONES.has(zoneIndex),
+        });
+      }
+    }
   }
 
   // ── Draw ───────────────────────────────────────────────────────────────────
