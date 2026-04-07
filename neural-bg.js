@@ -5,7 +5,7 @@
 
   const CELL       = 96;   // grid spacing (px)
   const GLOW_N     = 10;   // simultaneous soft glows
-  const LINE_ALPHA = 0.048; // grid line opacity — barely there
+  const LINE_ALPHA = 0.11;  // grid line opacity
   const NODE_ALPHA = 0.10;  // tiny intersection dot opacity
 
   // Translucent panels — static, aligned to grid, suggest layered data
