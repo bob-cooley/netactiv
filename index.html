@@ -24,12 +24,17 @@
       display: block;
     }
 
-    .grid {
+    /* Outer wrapper — centers everything, logo sits above the frame */
+    .page {
       position: relative;
       z-index: 1;
       max-width: 1200px;
       margin: 0 auto;
-      padding: 40px 24px;
+      padding: 40px 24px 0;
+    }
+
+    .logo {
+      padding-bottom: 32px;
     }
 
     .logo img {
@@ -38,29 +43,41 @@
       display: block;
     }
 
+    /* The framed content area — starts below the logo */
+    .content-frame {
+      border: 3px solid rgba(180, 180, 180, 0.35);
+      padding: 40px;
+    }
+
     footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 1;
-      text-align: center;
-      padding: 20px;
-      font-family: 'Inter', Helvetica Neue, Helvetica, Arial, sans-serif;
+      font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 13px;
       color: #666666;
       letter-spacing: 0.03em;
+      text-align: center;
+      padding: 24px 0 28px;
     }
   </style>
 </head>
 <body>
   <canvas id="neural-bg"></canvas>
-  <div class="grid">
+  <div class="page">
     <div class="logo">
       <img src="art/na-logo-long.svg" alt="netActiv">
     </div>
+    <div class="content-frame">
+
+      <!-- 60 lines of placeholder space -->
+      <br><br><br><br><br><br><br><br><br><br>
+      <br><br><br><br><br><br><br><br><br><br>
+      <br><br><br><br><br><br><br><br><br><br>
+      <br><br><br><br><br><br><br><br><br><br>
+      <br><br><br><br><br><br><br><br><br><br>
+      <br><br><br><br><br><br><br><br><br><br>
+
+      <footer>&copy; 2026 netActiv</footer>
+    </div>
   </div>
-  <footer>&copy; 2026 netActiv</footer>
   <script src="neural-bg.js"></script>
 </body>
 </html>
