@@ -344,11 +344,10 @@
     canvas.style.cursor = 'grab';
   }
 
-  // Mouse
-  canvas.addEventListener('mousedown',  e => onDown(e.clientX, e.clientY));
-  canvas.addEventListener('mousemove',  e => onMove(e.clientX, e.clientY));
-  canvas.addEventListener('mouseup',    onUp);
-  canvas.addEventListener('mouseleave', onUp);
+  // Mouse — move/up on window so fast drags don't escape the canvas
+  canvas.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup',   onUp);
 
   // Touch
   canvas.addEventListener('touchstart', e => {
