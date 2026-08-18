@@ -21,6 +21,14 @@
       display: block;
       position: fixed;
       inset: 0;
+      z-index: 1;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #neuralvex-canvas:active {
+      cursor: grabbing;
     }
 
     /* netActiv wordmark — top left */
@@ -42,6 +50,7 @@
       bottom: 36px;
       left: 38px;
       z-index: 10;
+      pointer-events: none;
       font-family: 'Inter', Helvetica Neue, sans-serif;
       font-weight: 300;
       letter-spacing: 0.18em;
@@ -67,6 +76,7 @@
       bottom: 36px;
       right: 38px;
       z-index: 10;
+      pointer-events: none;
       font-family: 'Inter', Helvetica Neue, sans-serif;
       font-size: 11px;
       font-weight: 300;
@@ -96,6 +106,6 @@
     <div>Sectors &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2,048</div>
   </div>
 
-  <script src="jupiter.js"></script>
+  <script src="jupiter.js?v=3"></script>
 </body>
 </html>
