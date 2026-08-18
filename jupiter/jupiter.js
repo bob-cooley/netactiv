@@ -11,8 +11,8 @@
   const LAT_LINES    = 9;
   const LON_LINES    = 18;
   const NODE_COUNT   = 44;
-  const EDGE_COUNT   = 42;
-  const PACKET_COUNT = 26;
+  const EDGE_COUNT   = 50;
+  const PACKET_COUNT = 28;
 
   // ── Node types — each color has a role ────────────────────────────────────
   //   relay    cyan    backbone routing
@@ -75,9 +75,13 @@
       a: 0.07 + Math.random() * 0.52,
     }));
 
-    nodes = Array.from({ length: NODE_COUNT }, () => {
-      const lat = (Math.random() - 0.5) * Math.PI;
-      const lon = Math.random() * Math.PI * 2;
+    // Fibonacci lattice gives even sphere coverage; small jitter keeps it organic
+    const GOLDEN = Math.PI * (3 - Math.sqrt(5)); // golden angle
+    nodes = Array.from({ length: NODE_COUNT }, (_, i) => {
+      const y0  = 1 - (i / (NODE_COUNT - 1)) * 2; // -1..1 evenly
+      const yj  = Math.max(-0.98, Math.min(0.98, y0 + (Math.random() - 0.5) * 0.14));
+      const lat = Math.asin(yj);
+      const lon = ((GOLDEN * i + (Math.random() - 0.5) * 0.45) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
       const type = pickType();
       return {
         pos:         xyz(lat, lon),
@@ -89,8 +93,28 @@
 
     const used = new Set();
     edges = [];
+
+    // Hubs get 5-6 guaranteed spokes before random fill
+    const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
+    hubIdxs.forEach(h => {
+      const target = 5 + Math.floor(Math.random() * 2);
+      let got = 0, t = 0;
+      while (got < target && t++ < 400) {
+        const b = Math.floor(Math.random() * NODE_COUNT);
+        const k = `${Math.min(h, b)}-${Math.max(h, b)}`;
+        if (b !== h && !used.has(k)) {
+          used.add(k);
+          const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
+            ? nodes[h].type : nodes[b].type;
+          edges.push({ a: h, b, rgb: dom.rgb });
+          got++;
+        }
+      }
+    });
+
+    // Fill remaining edge budget randomly
     let tries = 0;
-    while (edges.length < EDGE_COUNT && tries++ < 1200) {
+    while (edges.length < EDGE_COUNT && tries++ < 1500) {
       const a = Math.floor(Math.random() * NODE_COUNT);
       const b = Math.floor(Math.random() * NODE_COUNT);
       const k = `${Math.min(a, b)}-${Math.max(a, b)}`;
