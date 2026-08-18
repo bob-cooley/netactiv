@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jupiter — netActiv</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #020306;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #jupiter-canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+    }
+
+    /* netActiv wordmark — top left */
+    .brand {
+      position: fixed;
+      top: 32px;
+      left: 36px;
+      z-index: 10;
+    }
+
+    .brand img {
+      width: 220px;
+      opacity: 0.75;
+    }
+
+    /* Label — bottom left */
+    .label {
+      position: fixed;
+      bottom: 36px;
+      left: 38px;
+      z-index: 10;
+      font-family: 'Inter', Helvetica Neue, sans-serif;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .label .planet {
+      font-size: 11px;
+      color: rgba(200, 200, 210, 0.45);
+    }
+
+    .label .name {
+      font-size: 28px;
+      font-weight: 300;
+      color: rgba(220, 205, 175, 0.70);
+      line-height: 1.1;
+    }
+
+    /* Stats — bottom right */
+    .stats {
+      position: fixed;
+      bottom: 36px;
+      right: 38px;
+      z-index: 10;
+      font-family: 'Inter', Helvetica Neue, sans-serif;
+      font-size: 11px;
+      font-weight: 300;
+      color: rgba(180, 180, 195, 0.35);
+      text-align: right;
+      line-height: 1.9;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="jupiter-canvas"></canvas>
+
+  <div class="brand">
+    <a href="/"><img src="../art/na-logo-long.svg" alt="netActiv"></a>
+  </div>
+
+  <div class="label">
+    <div class="planet">Solar System · Planet V</div>
+    <div class="name">Jupiter</div>
+  </div>
+
+  <div class="stats">
+    <div>Mass &nbsp;&nbsp;&nbsp;&nbsp; 1.898 &times; 10&sup2;&sup7; kg</div>
+    <div>Diameter &nbsp; 139,820 km</div>
+    <div>Rotation &nbsp; 9h 55m</div>
+    <div>Moons &nbsp;&nbsp;&nbsp;&nbsp; 95</div>
+  </div>
+
+  <script src="jupiter.js"></script>
+</body>
+</html>
