@@ -5,14 +5,16 @@
   let W, H, cx, cy, R, rafId;
   let stars = [];
   let nodes = [], edges = [], packets = [];
+  let dragSens = 0.005;
 
-  const SPIN_MS      = 28000;
   const TILT         = 0.44;
   const LAT_LINES    = 9;
   const LON_LINES    = 18;
   const NODE_COUNT   = 44;
   const EDGE_COUNT   = 50;
   const PACKET_COUNT = 28;
+  const SPIN_MS      = 28000;
+  const AUTO_SPIN    = 2 * Math.PI / SPIN_MS;
 
   // ── Node types — each color has a role ────────────────────────────────────
   //   relay    cyan    backbone routing
@@ -36,20 +38,37 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3-D helpers ──────────────────────────────────────────────────────────────────
+  // ── 3×3 matrix math ─────────────────────────────────────────────────────────
+
+  const mm = (A, B) => [
+    A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
+    A[3]*B[0]+A[4]*B[3]+A[5]*B[6], A[3]*B[1]+A[4]*B[4]+A[5]*B[7], A[3]*B[2]+A[4]*B[5]+A[5]*B[8],
+    A[6]*B[0]+A[7]*B[3]+A[8]*B[6], A[6]*B[1]+A[7]*B[4]+A[8]*B[7], A[6]*B[2]+A[7]*B[5]+A[8]*B[8],
+  ];
+  const mv  = (M, v) => [
+    M[0]*v[0]+M[1]*v[1]+M[2]*v[2],
+    M[3]*v[0]+M[4]*v[1]+M[5]*v[2],
+    M[6]*v[0]+M[7]*v[1]+M[8]*v[2],
+  ];
+  const mrx = a => { const c=Math.cos(a),s=Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; };
+  const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
+  const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
+
+  // ── Orientation state ────────────────────────────────────────────────────────
+
+  let rotM  = mrz(TILT);   // start with axial tilt baked in
+  let velX  = 0, velY = 0; // angular velocity (rad/ms)
+  let isDrag = false;
+  let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
+
+  // ── 3-D helpers ──────────────────────────────────────────────────────────────
 
   function xyz(lat, lon) {
     const c = Math.cos(lat);
     return [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)];
   }
 
-  function rot(p, spin) {
-    const [px, py, pz] = p;
-    const cs = Math.cos(spin), ss = Math.sin(spin);
-    const rx = px * cs + pz * ss, ry = py, rz = -px * ss + pz * cs;
-    const ct = Math.cos(TILT),    st = Math.sin(TILT);
-    return [rx * ct - ry * st, rx * st + ry * ct, rz];
-  }
+  function rot(p) { return mv(rotM, p); }
 
   function proj(p) {
     return [cx + R * p[0], cy - R * p[1], p[2]];
@@ -66,7 +85,7 @@
     return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
   }
 
-  // ── Scene init ───────────────────────────────────────────────────────────────────
+  // ── Scene init ───────────────────────────────────────────────────────────────
 
   function buildScene() {
     stars = Array.from({ length: 320 }, () => ({
@@ -75,10 +94,9 @@
       a: 0.07 + Math.random() * 0.52,
     }));
 
-    // Fibonacci lattice gives even sphere coverage; small jitter keeps it organic
-    const GOLDEN = Math.PI * (3 - Math.sqrt(5)); // golden angle
+    const GOLDEN = Math.PI * (3 - Math.sqrt(5));
     nodes = Array.from({ length: NODE_COUNT }, (_, i) => {
-      const y0  = 1 - (i / (NODE_COUNT - 1)) * 2; // -1..1 evenly
+      const y0  = 1 - (i / (NODE_COUNT - 1)) * 2;
       const yj  = Math.max(-0.98, Math.min(0.98, y0 + (Math.random() - 0.5) * 0.14));
       const lat = Math.asin(yj);
       const lon = ((GOLDEN * i + (Math.random() - 0.5) * 0.45) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
@@ -94,7 +112,6 @@
     const used = new Set();
     edges = [];
 
-    // Hubs get 5-6 guaranteed spokes before random fill
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
       const target = 5 + Math.floor(Math.random() * 2);
@@ -112,7 +129,6 @@
       }
     });
 
-    // Fill remaining edge budget randomly
     let tries = 0;
     while (edges.length < EDGE_COUNT && tries++ < 1500) {
       const a = Math.floor(Math.random() * NODE_COUNT);
@@ -133,9 +149,24 @@
     }));
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   function render(ts) {
+    const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
+    lastTS = ts;
+
+    // Apply physics
+    if (!isDrag) {
+      if (velX * velX + velY * velY > 1e-12) {
+        rotM = mm(mrx(velX * dt), rotM);
+        rotM = mm(mry(velY * dt), rotM);
+        const decay = Math.pow(0.97, dt / 16.67);
+        velX *= decay;
+        velY *= decay;
+      }
+      rotM = mm(mry(AUTO_SPIN * dt), rotM);
+    }
+
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#02040d';
     ctx.fillRect(0, 0, W, H);
@@ -147,7 +178,6 @@
       ctx.fill();
     });
 
-    const spin = (ts / SPIN_MS) * Math.PI * 2;
     const SEGS = 72;
 
     // ── Grid — back face ──
@@ -155,16 +185,16 @@
     for (let i = 0; i <= LAT_LINES; i++) {
       const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
       for (let j = 0; j < SEGS; j++) {
-        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2), spin));
-        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2), spin));
+        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2)));
+        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2)));
         if (p0[2] <= 0 && p1[2] <= 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
       }
     }
     for (let i = 0; i < LON_LINES; i++) {
       const lon = (i / LON_LINES) * Math.PI * 2;
       for (let j = 0; j < SEGS; j++) {
-        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon), spin));
-        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon), spin));
+        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon)));
+        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon)));
         if (p0[2] <= 0 && p1[2] <= 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
       }
     }
@@ -177,16 +207,16 @@
     for (let i = 0; i <= LAT_LINES; i++) {
       const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
       for (let j = 0; j < SEGS; j++) {
-        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2), spin));
-        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2), spin));
+        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2)));
+        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2)));
         if (p0[2] > 0 && p1[2] > 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
       }
     }
     for (let i = 0; i < LON_LINES; i++) {
       const lon = (i / LON_LINES) * Math.PI * 2;
       for (let j = 0; j < SEGS; j++) {
-        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon), spin));
-        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon), spin));
+        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon)));
+        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon)));
         if (p0[2] > 0 && p1[2] > 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
       }
     }
@@ -195,9 +225,9 @@
     ctx.stroke();
 
     // ── Axis indicator ──
-    const nPole   = proj(rot([0, 1, 0], spin));
-    const sPole   = proj(rot([0, -1, 0], spin));
-    const axX     = 1.18;
+    const nPole = proj(rot([0, 1, 0]));
+    const sPole = proj(rot([0, -1, 0]));
+    const axX   = 1.18;
     ctx.setLineDash([4, 8]);
     ctx.beginPath();
     ctx.moveTo(cx + (nPole[0] - cx) * axX, cy + (nPole[1] - cy) * axX);
@@ -213,7 +243,7 @@
       let prev = null;
       for (let j = 0; j <= ESEGS; j++) {
         const sp = slerp(nodes[a].pos, nodes[b].pos, j / ESEGS);
-        const rp = proj(rot(sp, spin));
+        const rp = proj(rot(sp));
         if (prev) {
           const mz   = (rp[2] + prev[2]) * 0.5;
           const alph = mz > 0 ? (0.06 + mz * 0.40) : 0.010;
@@ -230,7 +260,7 @@
 
     // ── Nodes ──
     nodes.forEach(nd => {
-      const rp = proj(rot(nd.pos, spin));
+      const rp = proj(rot(nd.pos));
       if (rp[2] < -0.04) return;
       const pulse = 0.5 + 0.5 * Math.sin(ts / nd.pulsePeriod * Math.PI * 2 + nd.pulsePhase);
       const vis   = rp[2] > 0 ? 0.40 + rp[2] * 0.60 : 0;
@@ -257,7 +287,7 @@
       p.t = (p.t + p.speed) % 1;
       const edge = edges[p.edge];
       const sp   = slerp(nodes[edge.a].pos, nodes[edge.b].pos, p.t);
-      const rp   = proj(rot(sp, spin));
+      const rp   = proj(rot(sp));
       if (rp[2] < 0) return;
       const a    = 0.45 + rp[2] * 0.55;
       const pr   = R * 0.014;
@@ -285,6 +315,53 @@
     rafId = requestAnimationFrame(render);
   }
 
+  // ── Drag input ───────────────────────────────────────────────────────────────
+
+  function onDown(x, y) {
+    isDrag = true;
+    lastPX = x; lastPY = y;
+    lastPT = performance.now();
+    velX = 0; velY = 0;
+    canvas.style.cursor = 'grabbing';
+  }
+
+  function onMove(x, y) {
+    if (!isDrag) return;
+    const now = performance.now();
+    const dt  = Math.max(1, now - lastPT);
+    const dx  = x - lastPX;
+    const dy  = y - lastPY;
+    rotM = mm(mrx(dy * dragSens), rotM);
+    rotM = mm(mry(dx * dragSens), rotM);
+    const alpha = 0.65;
+    velX = alpha * (dy * dragSens / dt) + (1 - alpha) * velX;
+    velY = alpha * (dx * dragSens / dt) + (1 - alpha) * velY;
+    lastPX = x; lastPY = y; lastPT = now;
+  }
+
+  function onUp() {
+    isDrag = false;
+    canvas.style.cursor = 'grab';
+  }
+
+  // Mouse
+  canvas.addEventListener('mousedown',  e => onDown(e.clientX, e.clientY));
+  canvas.addEventListener('mousemove',  e => onMove(e.clientX, e.clientY));
+  canvas.addEventListener('mouseup',    onUp);
+  canvas.addEventListener('mouseleave', onUp);
+
+  // Touch
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    onDown(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  canvas.addEventListener('touchend',   onUp);
+  canvas.addEventListener('touchcancel', onUp);
+
   // ── Resize ───────────────────────────────────────────────────────────────────
 
   function resize() {
@@ -293,6 +370,8 @@
     R  = Math.min(W, H) * 0.38;
     cx = W * 0.5;
     cy = H * 0.5;
+    dragSens = Math.PI / (2 * R);
+    canvas.style.cursor = 'grab';
   }
 
   buildScene();
