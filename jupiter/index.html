@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jupiter — netActiv</title>
+  <title>Neuralvex IV — netActiv</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
@@ -11,13 +11,13 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #020306;
+      background: #02040d;
       width: 100vw;
       height: 100vh;
       overflow: hidden;
     }
 
-    #jupiter-canvas {
+    #neuralvex-canvas {
       display: block;
       position: fixed;
       inset: 0;
@@ -33,7 +33,7 @@
 
     .brand img {
       width: 220px;
-      opacity: 0.75;
+      opacity: 0.60;
     }
 
     /* Label — bottom left */
@@ -50,14 +50,15 @@
 
     .label .planet {
       font-size: 11px;
-      color: rgba(200, 200, 210, 0.45);
+      color: rgba(0, 195, 255, 0.42);
     }
 
     .label .name {
       font-size: 28px;
       font-weight: 300;
-      color: rgba(220, 205, 175, 0.70);
+      color: rgba(80, 222, 255, 0.78);
       line-height: 1.1;
+      letter-spacing: 0.22em;
     }
 
     /* Stats — bottom right */
@@ -69,7 +70,7 @@
       font-family: 'Inter', Helvetica Neue, sans-serif;
       font-size: 11px;
       font-weight: 300;
-      color: rgba(180, 180, 195, 0.35);
+      color: rgba(0, 185, 230, 0.38);
       text-align: right;
       line-height: 1.9;
       letter-spacing: 0.06em;
@@ -77,22 +78,22 @@
   </style>
 </head>
 <body>
-  <canvas id="jupiter-canvas"></canvas>
+  <canvas id="neuralvex-canvas"></canvas>
 
   <div class="brand">
     <a href="/"><img src="../art/na-logo-long.svg" alt="netActiv"></a>
   </div>
 
   <div class="label">
-    <div class="planet">Solar System · Planet V</div>
-    <div class="name">Jupiter</div>
+    <div class="planet">Neuralvex System &middot; Class IV</div>
+    <div class="name">Neuralvex IV</div>
   </div>
 
   <div class="stats">
-    <div>Mass &nbsp;&nbsp;&nbsp;&nbsp; 1.898 &times; 10&sup2;&sup7; kg</div>
-    <div>Diameter &nbsp; 139,820 km</div>
-    <div>Rotation &nbsp; 9h 55m</div>
-    <div>Moons &nbsp;&nbsp;&nbsp;&nbsp; 95</div>
+    <div>Core Nodes &nbsp;&nbsp; 4.7 &times; 10&sup9;</div>
+    <div>Throughput &nbsp; 847 Pb/s</div>
+    <div>Uptime &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 99.997%</div>
+    <div>Sectors &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2,048</div>
   </div>
 
   <script src="jupiter.js"></script>

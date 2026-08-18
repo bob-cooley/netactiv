@@ -1,249 +1,252 @@
 (function () {
-  const canvas = document.getElementById('jupiter-canvas');
+  const canvas = document.getElementById('neuralvex-canvas');
   const ctx    = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
 
-  let W, H, cx, cy, R, rafId, stars = [];
-  let tex;
-  let sphereCanvas, sphereCtx;
+  let W, H, cx, cy, R, rafId;
+  let stars = [];
+  let nodes = [], edges = [], packets = [];
 
-  const ROTATION_MS = 30000;
-  const TEX_W = 2048, TEX_H = 512;
+  const SPIN_MS      = 28000;   // full rotation period
+  const TILT         = 0.44;    // axial tilt in radians (~25°)
+  const LAT_LINES    = 9;
+  const LON_LINES    = 18;
+  const NODE_COUNT   = 26;
+  const EDGE_COUNT   = 22;
+  const PACKET_COUNT = 14;
 
-  // ── Procedural Jupiter texture ─────────────────────────────────────────────
-  function generateTexture() {
-    const tc = document.createElement('canvas');
-    tc.width = TEX_W; tc.height = TEX_H;
-    const tx = tc.getContext('2d');
-    tx.imageSmoothingEnabled = true;
+  // ── 3-D helpers ──────────────────────────────────────────────────────────────────
 
-    // Muted, photorealistic palette — cream zones, muted-brown belts
-    const bands = [
-      [0.00, 0.07, '#6a5038'],  // N polar — gray-brown
-      [0.07, 0.05, '#b08e5c'],  // NNZ — tan
-      [0.12, 0.07, '#7a4828'],  // NEB — main dark belt
-      [0.19, 0.05, '#c8b478'],  // NTrZ — cream
-      [0.24, 0.06, '#bca868'],  // EZn — warm light
-      [0.30, 0.06, '#a07c50'],  // EB — equatorial band
-      [0.36, 0.08, '#784e38'],  // SEB — south equatorial belt
-      [0.44, 0.09, '#b8a268'],  // STrZ — south tropical zone
-      [0.53, 0.06, '#6a4430'],  // STB — south temperate belt
-      [0.59, 0.07, '#8e6c56'],  // SSTB
-      [0.66, 0.07, '#745848'],  // S polar region
-      [0.73, 0.27, '#584030'],  // SP — south polar cap
-    ];
-
-    bands.forEach(([y0, h, color]) => {
-      tx.fillStyle = color;
-      tx.fillRect(0, y0 * TEX_H, TEX_W, Math.ceil(h * TEX_H) + 2);
-    });
-
-    // Wide, turbulent blending between bands
-    for (let i = 0; i < bands.length - 1; i++) {
-      const [y0, h, c0] = bands[i];
-      const [, , c1]    = bands[i + 1];
-      const edgeY       = (y0 + h) * TEX_H;
-      const amp         = 5 + Math.random() * 8;
-      const freq1       = 4  + Math.random() * 5;
-      const freq2       = 11 + Math.random() * 8;
-      const phase1      = Math.random() * Math.PI * 2;
-      const phase2      = Math.random() * Math.PI * 2;
-
-      for (let x = 0; x < TEX_W; x += 2) {
-        const wave = Math.sin(x / TEX_W * Math.PI * freq1 + phase1) * amp
-                   + Math.sin(x / TEX_W * Math.PI * freq2 + phase2) * (amp * 0.35);
-        const blend = 26; // wide transition (was 8)
-        for (let dy = -blend; dy <= blend; dy++) {
-          const t = Math.max(0, 1 - Math.abs(dy - wave) / blend);
-          if (t < 0.01) continue;
-          tx.globalAlpha = t * 0.55;
-          tx.fillStyle   = dy < wave ? c0 : c1;
-          tx.fillRect(x, edgeY + dy, 2, 1);
-        }
-      }
-    }
-    tx.globalAlpha = 1;
-
-    // Subtle cloud streaks
-    tx.globalCompositeOperation = 'screen';
-    for (let i = 0; i < 160; i++) {
-      const y   = Math.random() * TEX_H;
-      const x   = Math.random() * TEX_W;
-      const len = 60 + Math.random() * 360;
-      tx.globalAlpha = 0.012 + Math.random() * 0.030;
-      tx.fillStyle   = Math.random() < 0.65 ? '#fff0d0' : '#1a0500';
-      tx.fillRect(x, y, len, 1 + (Math.random() < 0.28 ? 1 : 0));
-    }
-    tx.globalAlpha = 1;
-    tx.globalCompositeOperation = 'source-over';
-
-    // Great Red Spot
-    const grsX  = TEX_W  * 0.30;
-    const grsY  = TEX_H  * 0.625;
-    const grsRx = TEX_W  * 0.050;
-    const grsRy = TEX_H  * 0.034;
-
-    tx.save();
-    tx.translate(grsX, grsY);
-    tx.scale(1, grsRy * 1.5 / (grsRx * 1.5));
-    const halo = tx.createRadialGradient(0, 0, grsRx * 0.3, 0, 0, grsRx * 1.5);
-    halo.addColorStop(0,   'rgba(160, 58, 20, 0)');
-    halo.addColorStop(0.4, 'rgba(145, 50, 16, 0.18)');
-    halo.addColorStop(1,   'rgba(125, 40, 12, 0)');
-    tx.beginPath();
-    tx.arc(0, 0, grsRx * 1.5, 0, Math.PI * 2);
-    tx.fillStyle = halo;
-    tx.fill();
-    tx.restore();
-
-    tx.save();
-    tx.translate(grsX, grsY);
-    tx.scale(1, grsRy / grsRx);
-    const eye = tx.createRadialGradient(0, 0, 0, 0, 0, grsRx);
-    eye.addColorStop(0,    'rgba(182, 62, 20, 0.58)');
-    eye.addColorStop(0.5,  'rgba(158, 48, 15, 0.38)');
-    eye.addColorStop(0.85, 'rgba(130, 36, 10, 0.14)');
-    eye.addColorStop(1,    'rgba(110, 28,  8, 0)');
-    tx.beginPath();
-    tx.arc(0, 0, grsRx, 0, Math.PI * 2);
-    tx.fillStyle = eye;
-    tx.fill();
-    tx.restore();
-
-    // Soften: blend 50% of a gaussian-blurred copy into the texture
-    const blurred = document.createElement('canvas');
-    blurred.width = TEX_W; blurred.height = TEX_H;
-    const bx = blurred.getContext('2d');
-    bx.filter = 'blur(3px)';
-    bx.drawImage(tc, 0, 0);
-    bx.filter = 'none';
-    tx.globalAlpha = 0.50;
-    tx.drawImage(blurred, 0, 0);
-    tx.globalAlpha = 1;
-
-    return tc;
+  function xyz(lat, lon) {
+    const c = Math.cos(lat);
+    return [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)];
   }
 
-  function buildStars() {
-    stars = Array.from({ length: 280 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      r: 0.3 + Math.random() * 1.1,
-      a: 0.2 + Math.random() * 0.8,
+  // Y-axis spin, then Z-axis tilt
+  function rot(p, spin) {
+    const [px, py, pz] = p;
+    const cs = Math.cos(spin), ss = Math.sin(spin);
+    const rx = px * cs + pz * ss, ry = py, rz = -px * ss + pz * cs;
+    const ct = Math.cos(TILT), st = Math.sin(TILT);
+    return [rx * ct - ry * st, rx * st + ry * ct, rz];
+  }
+
+  // Orthographic projection (world Y up → screen Y down)
+  function proj(p) {
+    return [cx + R * p[0], cy - R * p[1], p[2]];
+  }
+
+  // Great-circle interpolation
+  function slerp(a, b, t) {
+    let dot = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    dot = Math.max(-1, Math.min(1, dot));
+    const omega = Math.acos(dot);
+    if (omega < 1e-6) return [a[0], a[1], a[2]];
+    const s  = Math.sin(omega);
+    const fa = Math.sin((1 - t) * omega) / s;
+    const fb = Math.sin(t * omega) / s;
+    return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
+  }
+
+  // ── Scene init (once) ───────────────────────────────────────────────────────────
+
+  function buildScene() {
+    stars = Array.from({ length: 310 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 0.25 + Math.random() * 0.9,
+      a: 0.08 + Math.random() * 0.55,
+    }));
+
+    nodes = Array.from({ length: NODE_COUNT }, () => {
+      const lat = (Math.random() - 0.5) * Math.PI;
+      const lon = Math.random() * Math.PI * 2;
+      return {
+        pos:         xyz(lat, lon),
+        pulsePhase:  Math.random() * Math.PI * 2,
+        pulsePeriod: 1600 + Math.random() * 2800,
+      };
+    });
+
+    const used = new Set();
+    edges = [];
+    let tries = 0;
+    while (edges.length < EDGE_COUNT && tries++ < 600) {
+      const a = Math.floor(Math.random() * NODE_COUNT);
+      const b = Math.floor(Math.random() * NODE_COUNT);
+      const k = `${Math.min(a, b)}-${Math.max(a, b)}`;
+      if (a !== b && !used.has(k)) { used.add(k); edges.push({ a, b }); }
+    }
+
+    packets = Array.from({ length: PACKET_COUNT }, () => ({
+      edge:  Math.floor(Math.random() * edges.length),
+      t:     Math.random(),
+      speed: 0.00032 + Math.random() * 0.00052,
     }));
   }
 
-  function ensureSphereCanvas() {
-    if (!sphereCanvas || sphereCanvas.width !== W || sphereCanvas.height !== H) {
-      sphereCanvas = document.createElement('canvas');
-      sphereCanvas.width  = W;
-      sphereCanvas.height = H;
-      sphereCtx = sphereCanvas.getContext('2d');
-      sphereCtx.imageSmoothingEnabled = true;
-      sphereCtx.imageSmoothingQuality = 'high';
-    }
-  }
+  // ── Render ───────────────────────────────────────────────────────────────────────
 
   function render(ts) {
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#020306';
+    ctx.fillStyle = '#02040d';
     ctx.fillRect(0, 0, W, H);
 
+    // Stars
     stars.forEach(s => {
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(215,228,255,${s.a})`;
+      ctx.fillStyle = `rgba(195,218,255,${s.a})`;
       ctx.fill();
     });
 
-    const offset  = (ts / ROTATION_MS) % 1;
-    const srcOffX = offset * TEX_W;
+    const spin = (ts / SPIN_MS) * Math.PI * 2;
+    const SEGS = 72;
 
-    // Draw strips to offscreen canvas, then composite with blur
-    ensureSphereCanvas();
-    sphereCtx.clearRect(0, 0, W, H);
-    sphereCtx.save();
-    sphereCtx.beginPath();
-    sphereCtx.arc(cx, cy, R, 0, Math.PI * 2);
-    sphereCtx.clip();
-
-    for (let dy = -R; dy <= R; dy++) {
-      const sinP   = dy / R;
-      const cosP   = Math.sqrt(Math.max(0, 1 - sinP * sinP));
-      const phi    = Math.asin(sinP);
-      const stripW = 2 * R * cosP;
-      if (stripW < 1) continue;
-
-      const srcY   = ((phi / Math.PI) + 0.5) * (TEX_H - 1);
-      const y      = cy + dy;
-      const x      = cx - stripW * 0.5;
-
-      const seg1Src = srcOffX;
-      const seg1Len = TEX_W - seg1Src;
-      const seg1Px  = (seg1Len / TEX_W) * stripW;
-      sphereCtx.drawImage(tex, seg1Src, srcY, seg1Len, 1, x, y, seg1Px, 1);
-
-      if (srcOffX > 0) {
-        sphereCtx.drawImage(tex, 0, srcY, srcOffX, 1, x + seg1Px, y, stripW - seg1Px, 1);
+    // ── Grid — back face (ghosted) ──
+    ctx.beginPath();
+    for (let i = 0; i <= LAT_LINES; i++) {
+      const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
+      for (let j = 0; j < SEGS; j++) {
+        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2), spin));
+        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2), spin));
+        if (p0[2] <= 0 && p1[2] <= 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
       }
     }
+    for (let i = 0; i < LON_LINES; i++) {
+      const lon = (i / LON_LINES) * Math.PI * 2;
+      for (let j = 0; j < SEGS; j++) {
+        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon), spin));
+        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon), spin));
+        if (p0[2] <= 0 && p1[2] <= 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+      }
+    }
+    ctx.strokeStyle = 'rgba(0, 175, 255, 0.06)';
+    ctx.lineWidth = 0.4;
+    ctx.stroke();
 
-    sphereCtx.restore();
-
-    // Composite sphere with a gentle blur — smooths scanlines, gives gaseous feel
-    ctx.filter = 'blur(1px)';
-    ctx.drawImage(sphereCanvas, 0, 0);
-    ctx.filter = 'none';
-
-    // Overlays (sharp, drawn without blur)
-    const limb = ctx.createRadialGradient(
-      cx - R * 0.18, cy - R * 0.12, R * 0.25,
-      cx, cy, R
-    );
-    limb.addColorStop(0.45, 'rgba(0,0,0,0)');
-    limb.addColorStop(0.82, 'rgba(0,0,0,0.14)');
-    limb.addColorStop(1.00, 'rgba(0,0,0,0.76)');
+    // ── Grid — front face ──
     ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.fillStyle = limb;
-    ctx.fill();
+    for (let i = 0; i <= LAT_LINES; i++) {
+      const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
+      for (let j = 0; j < SEGS; j++) {
+        const p0 = proj(rot(xyz(lat, (j / SEGS) * Math.PI * 2), spin));
+        const p1 = proj(rot(xyz(lat, ((j + 1) / SEGS) * Math.PI * 2), spin));
+        if (p0[2] > 0 && p1[2] > 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+      }
+    }
+    for (let i = 0; i < LON_LINES; i++) {
+      const lon = (i / LON_LINES) * Math.PI * 2;
+      for (let j = 0; j < SEGS; j++) {
+        const p0 = proj(rot(xyz(-Math.PI/2 + (j / SEGS) * Math.PI, lon), spin));
+        const p1 = proj(rot(xyz(-Math.PI/2 + ((j + 1) / SEGS) * Math.PI, lon), spin));
+        if (p0[2] > 0 && p1[2] > 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+      }
+    }
+    ctx.strokeStyle = 'rgba(0, 210, 255, 0.28)';
+    ctx.lineWidth = 0.65;
+    ctx.stroke();
 
-    const hiGrad = ctx.createRadialGradient(
-      cx - R * 0.28, cy - R * 0.22, 0,
-      cx - R * 0.10, cy - R * 0.08, R * 0.85
-    );
-    hiGrad.addColorStop(0,    'rgba(255,240,210,0.09)');
-    hiGrad.addColorStop(0.45, 'rgba(255,220,170,0.04)');
-    hiGrad.addColorStop(1,    'rgba(0,0,0,0)');
+    // ── Axis indicator ── (faint dashed line through poles)
+    const nPole = proj(rot([0, 1, 0], spin));
+    const sPole = proj(rot([0, -1, 0], spin));
+    const axExtend = 1.18;
+    const axNx = cx + (nPole[0] - cx) * axExtend;
+    const axNy = cy + (nPole[1] - cy) * axExtend;
+    const axSx = cx + (sPole[0] - cx) * axExtend;
+    const axSy = cy + (sPole[1] - cy) * axExtend;
+    ctx.setLineDash([4, 8]);
     ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.fillStyle = hiGrad;
-    ctx.fill();
+    ctx.moveTo(axNx, axNy);
+    ctx.lineTo(axSx, axSy);
+    ctx.strokeStyle = 'rgba(0, 160, 220, 0.18)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+    ctx.setLineDash([]);
 
-    const glow = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.20);
-    glow.addColorStop(0,    'rgba(155, 95, 38, 0.20)');
-    glow.addColorStop(0.45, 'rgba(125, 75, 28, 0.09)');
-    glow.addColorStop(1,    'rgba( 85, 52, 18, 0)');
+    // ── Data edges (great-circle paths) ──
+    const ESEGS = 32;
+    edges.forEach(({ a, b }) => {
+      let prev = null;
+      for (let j = 0; j <= ESEGS; j++) {
+        const sp = slerp(nodes[a].pos, nodes[b].pos, j / ESEGS);
+        const rp = proj(rot(sp, spin));
+        if (prev) {
+          const mz   = (rp[2] + prev[2]) * 0.5;
+          const alph = mz > 0 ? (0.07 + mz * 0.44) : 0.012;
+          ctx.beginPath();
+          ctx.moveTo(prev[0], prev[1]);
+          ctx.lineTo(rp[0], rp[1]);
+          ctx.strokeStyle = `rgba(0, 255, 185, ${alph})`;
+          ctx.lineWidth = 0.9;
+          ctx.stroke();
+        }
+        prev = rp;
+      }
+    });
+
+    // ── Nodes ──
+    nodes.forEach(nd => {
+      const rp = proj(rot(nd.pos, spin));
+      if (rp[2] < -0.04) return;
+      const pulse = 0.5 + 0.5 * Math.sin(ts / nd.pulsePeriod * Math.PI * 2 + nd.pulsePhase);
+      const vis   = rp[2] > 0 ? 0.45 + rp[2] * 0.55 : 0;
+      const a     = vis * (0.60 + 0.40 * pulse);
+      const gr    = R * (0.020 + 0.012 * pulse);
+      const g     = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], gr);
+      g.addColorStop(0,   `rgba(0, 255, 218, ${a * 0.92})`);
+      g.addColorStop(0.5, `rgba(0, 200, 255, ${a * 0.32})`);
+      g.addColorStop(1,   'rgba(0, 140, 255, 0)');
+      ctx.beginPath();
+      ctx.arc(rp[0], rp[1], gr, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(rp[0], rp[1], 1.7, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(215, 255, 255, ${a})`;
+      ctx.fill();
+    });
+
+    // ── Data packets ──
+    packets.forEach(p => {
+      p.t = (p.t + p.speed) % 1;
+      const sp = slerp(nodes[edges[p.edge].a].pos, nodes[edges[p.edge].b].pos, p.t);
+      const rp = proj(rot(sp, spin));
+      if (rp[2] < 0) return;
+      const a  = 0.45 + rp[2] * 0.55;
+      const pr = R * 0.015;
+      const g  = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], pr);
+      g.addColorStop(0,   `rgba(255, 255, 255, ${a})`);
+      g.addColorStop(0.4, `rgba(80, 255, 215, ${a * 0.65})`);
+      g.addColorStop(1,   'rgba(0, 200, 175, 0)');
+      ctx.beginPath();
+      ctx.arc(rp[0], rp[1], pr, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+    });
+
+    // ── Rim glow ──
+    const rim = ctx.createRadialGradient(cx, cy, R * 0.88, cx, cy, R * 1.18);
+    rim.addColorStop(0,    'rgba(0, 170, 255, 0.12)');
+    rim.addColorStop(0.55, 'rgba(0, 120, 220, 0.05)');
+    rim.addColorStop(1,    'rgba(0,  70, 180, 0)');
     ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.20, 0, Math.PI * 2);
-    ctx.fillStyle = glow;
+    ctx.arc(cx, cy, R * 1.18, 0, Math.PI * 2);
+    ctx.fillStyle = rim;
     ctx.fill();
 
     rafId = requestAnimationFrame(render);
   }
 
+  // ── Resize ───────────────────────────────────────────────────────────────────────
+
   function resize() {
     W  = canvas.width  = window.innerWidth;
     H  = canvas.height = window.innerHeight;
-    R  = Math.min(W, H) * 0.40;
+    R  = Math.min(W, H) * 0.38;
     cx = W * 0.5;
     cy = H * 0.5;
-    sphereCanvas = null; // force recreate on next frame
-    buildStars();
   }
 
-  tex = generateTexture();
+  buildScene();
   resize();
 
   let rsTimer;
