@@ -15,6 +15,7 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
+      font-family: 'Inter', Helvetica Neue, sans-serif;
     }
 
     #neuralvex-canvas {
@@ -27,11 +28,9 @@
       user-select: none;
     }
 
-    #neuralvex-canvas:active {
-      cursor: grabbing;
-    }
+    #neuralvex-canvas:active { cursor: grabbing; }
 
-    /* netActiv wordmark — top left */
+    /* ── Brand — top left ── */
     .brand {
       position: fixed;
       top: 32px;
@@ -44,14 +43,13 @@
       opacity: 0.60;
     }
 
-    /* Label — bottom left */
+    /* ── Label — bottom left ── */
     .label {
       position: fixed;
       bottom: 36px;
       left: 38px;
       z-index: 10;
       pointer-events: none;
-      font-family: 'Inter', Helvetica Neue, sans-serif;
       font-weight: 300;
       letter-spacing: 0.18em;
       text-transform: uppercase;
@@ -70,20 +68,235 @@
       letter-spacing: 0.22em;
     }
 
-    /* Stats — bottom right */
+    /* ── Stats — bottom right ── */
     .stats {
       position: fixed;
       bottom: 36px;
       right: 38px;
       z-index: 10;
       pointer-events: none;
-      font-family: 'Inter', Helvetica Neue, sans-serif;
       font-size: 11px;
       font-weight: 300;
       color: rgba(0, 185, 230, 0.38);
       text-align: right;
       line-height: 1.9;
       letter-spacing: 0.06em;
+    }
+
+    /* ── Control buttons — top right ── */
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .ctrl-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(2, 4, 13, 0.82);
+      border: 1px solid rgba(0, 180, 220, 0.25);
+      color: rgba(0, 195, 235, 0.60);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+    }
+
+    .ctrl-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      display: block;
+    }
+
+    .ctrl-btn:hover {
+      border-color: rgba(0, 210, 255, 0.55);
+      color: rgba(0, 230, 255, 0.95);
+      background: rgba(0, 25, 45, 0.88);
+    }
+
+    .ctrl-btn.active {
+      border-color: rgba(0, 210, 255, 0.55);
+      color: rgba(0, 230, 255, 0.95);
+    }
+
+    /* ── Settings panel — slides in from right ── */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: 210px;
+      background: rgba(2, 4, 13, 0.95);
+      border-left: 1px solid rgba(0, 160, 210, 0.16);
+      z-index: 15;
+      padding: 72px 22px 24px;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+    }
+
+    .settings-panel.open { transform: translateX(0); }
+
+    .panel-title {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(0, 195, 240, 0.50);
+      margin-bottom: 22px;
+    }
+
+    .setting-group { margin-bottom: 18px; }
+
+    .setting-label {
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.20em;
+      text-transform: uppercase;
+      color: rgba(0, 155, 195, 0.42);
+      margin-bottom: 6px;
+    }
+
+    .setting-option {
+      display: block;
+      width: 100%;
+      background: rgba(0, 25, 45, 0.55);
+      border: 1px solid rgba(0, 145, 195, 0.20);
+      border-radius: 4px;
+      padding: 7px 12px;
+      font-family: 'Inter', Helvetica Neue, sans-serif;
+      font-size: 12px;
+      font-weight: 300;
+      color: rgba(0, 200, 240, 0.70);
+      letter-spacing: 0.06em;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      margin-bottom: 4px;
+    }
+
+    .setting-option:hover,
+    .setting-option.selected {
+      border-color: rgba(0, 195, 240, 0.45);
+      color: rgba(0, 225, 255, 1);
+    }
+
+    /* ── Info overlay ── */
+    .info-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(2, 4, 13, 0.68);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s;
+    }
+
+    .info-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .info-panel {
+      background: rgba(3, 7, 20, 0.97);
+      border: 1px solid rgba(0, 165, 215, 0.26);
+      border-radius: 6px;
+      padding: 28px 30px 24px;
+      width: 310px;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      background: none;
+      border: none;
+      color: rgba(0, 170, 215, 0.40);
+      font-size: 13px;
+      cursor: pointer;
+      padding: 4px 6px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .close-btn:hover { color: rgba(0, 225, 255, 0.90); }
+
+    .info-title {
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(80, 222, 255, 0.88);
+      margin-bottom: 3px;
+    }
+
+    .info-subtitle {
+      font-size: 10px;
+      font-weight: 300;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0, 195, 255, 0.38);
+      margin-bottom: 18px;
+    }
+
+    .info-divider {
+      height: 1px;
+      background: rgba(0, 155, 210, 0.14);
+      margin: 14px 0;
+    }
+
+    .info-desc {
+      font-size: 11px;
+      font-weight: 300;
+      color: rgba(0, 185, 230, 0.48);
+      line-height: 1.75;
+      letter-spacing: 0.04em;
+    }
+
+    .info-controls {
+      font-size: 10px;
+      font-weight: 300;
+      color: rgba(0, 155, 200, 0.40);
+      line-height: 1.85;
+      letter-spacing: 0.06em;
+    }
+
+    .info-controls b {
+      color: rgba(0, 200, 240, 0.62);
+      font-weight: 400;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      color: rgba(0, 175, 220, 0.42);
+      padding: 3px 0;
+    }
+
+    .info-row span { color: rgba(0, 205, 245, 0.68); }
+
+    .info-version {
+      font-size: 9px;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(0, 155, 200, 0.30);
+      text-align: right;
+      margin-top: 16px;
     }
   </style>
 </head>
@@ -105,6 +318,110 @@
     <div>Uptime &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 99.997%</div>
     <div>Sectors &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2,048</div>
   </div>
+
+  <!-- Control buttons -->
+  <div class="controls">
+    <button class="ctrl-btn active" id="btn-sound" title="Sound">
+      <svg id="icon-sound-on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      <svg id="icon-sound-off" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-settings" title="Settings">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81C14.36 2.57 14.16 2.4 13.92 2.4H10.08c-.24 0-.43.17-.47.41L9.25 5.35c-.59.24-1.13.56-1.62.94L5.24 5.33c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58C4.84 11.36 4.8 11.69 4.8 12s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61L19.14 12.94zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-info" title="Info">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+    </button>
+  </div>
+
+  <!-- Settings panel -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="panel-title">Settings</div>
+
+    <div class="setting-group">
+      <div class="setting-label">Display</div>
+      <button class="setting-option selected">Default</button>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Speed</div>
+      <button class="setting-option selected">Normal</button>
+    </div>
+  </div>
+
+  <!-- Info overlay -->
+  <div class="info-overlay" id="info-overlay">
+    <div class="info-panel">
+      <button class="close-btn" id="close-info">✕</button>
+      <div class="info-title">Neuralvex IV</div>
+      <div class="info-subtitle">Neuralvex System &middot; Class IV</div>
+      <div class="info-desc">
+        Real-time neural network topology visualization. An interactive 3D sphere depicting
+        live data routing across a distributed network architecture.
+      </div>
+      <div class="info-divider"></div>
+      <div class="info-controls">
+        <b>Drag</b> &nbsp;·&nbsp; Rotate the globe in any direction<br>
+        <b>Fling</b> &nbsp;·&nbsp; Release with momentum to spin freely
+      </div>
+      <div class="info-divider"></div>
+      <div class="info-row">Nodes <span>44 active</span></div>
+      <div class="info-row">Pathways <span>50 edges</span></div>
+      <div class="info-row">Packets in transit <span>28</span></div>
+      <div class="info-divider"></div>
+      <div class="info-version">netActiv &nbsp;·&nbsp; v 1.0 &nbsp;·&nbsp; 2025</div>
+    </div>
+  </div>
+
+  <script>
+    // ── Controls ───────────────────────────────────────────────────────────────────────────
+    let soundOn = true;
+
+    const btnSound      = document.getElementById('btn-sound');
+    const btnSettings   = document.getElementById('btn-settings');
+    const btnInfo       = document.getElementById('btn-info');
+    const iconSoundOn   = document.getElementById('icon-sound-on');
+    const iconSoundOff  = document.getElementById('icon-sound-off');
+    const settingsPanel = document.getElementById('settings-panel');
+    const infoOverlay   = document.getElementById('info-overlay');
+    const closeInfoBtn  = document.getElementById('close-info');
+
+    btnSound.addEventListener('click', () => {
+      soundOn = !soundOn;
+      iconSoundOn.style.display  = soundOn ? '' : 'none';
+      iconSoundOff.style.display = soundOn ? 'none' : '';
+      btnSound.classList.toggle('active', soundOn);
+    });
+
+    btnSettings.addEventListener('click', () => {
+      const open = settingsPanel.classList.toggle('open');
+      btnSettings.classList.toggle('active', open);
+      if (open) {
+        infoOverlay.classList.remove('open');
+        btnInfo.classList.remove('active');
+      }
+    });
+
+    btnInfo.addEventListener('click', () => {
+      const open = infoOverlay.classList.toggle('open');
+      btnInfo.classList.toggle('active', open);
+      if (open) {
+        settingsPanel.classList.remove('open');
+        btnSettings.classList.remove('active');
+      }
+    });
+
+    closeInfoBtn.addEventListener('click', () => {
+      infoOverlay.classList.remove('open');
+      btnInfo.classList.remove('active');
+    });
+
+    infoOverlay.addEventListener('click', e => {
+      if (e.target === infoOverlay) {
+        infoOverlay.classList.remove('open');
+        btnInfo.classList.remove('active');
+      }
+    });
+  </script>
 
   <script src="jupiter.js?v=4"></script>
 </body>
