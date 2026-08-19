@@ -23,7 +23,7 @@
   };
   let currentMode = 'chill';
 
-  // ── Node types — each color has a role ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // ── Node types — each color has a role ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   //   relay    cyan    backbone routing
   //   hub      amber   high-traffic aggregation points (bigger, slower pulse)
   //   gateway  violet  encrypted inter-sector portals
@@ -148,8 +148,6 @@
     const edgeAxes = [];
     edges = [];
 
-    const maxParallel = mode.longEdges ? 4 : MAX_PARALLEL;
-
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
       const target = 5 + Math.floor(Math.random() * 2);
@@ -158,8 +156,12 @@
         const b = Math.floor(Math.random() * nodeCount);
         const k = `${Math.min(h, b)}-${Math.max(h, b)}`;
         if (b === h || used.has(k)) continue;
+        if (mode.longEdges) {
+          const dot = nodes[h].pos[0]*nodes[b].pos[0] + nodes[h].pos[1]*nodes[b].pos[1] + nodes[h].pos[2]*nodes[b].pos[2];
+          if (dot > 0.1) continue;
+        }
         const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
-        if (tooParallel(ax, edgeAxes, maxParallel)) continue;
+        if (!mode.longEdges && tooParallel(ax, edgeAxes)) continue;
         used.add(k);
         edgeAxes.push(ax);
         const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
@@ -170,20 +172,21 @@
     });
 
     let tries = 0;
-    while (edges.length < edgeCount && tries++ < 4000) {
+    const maxTries = mode.longEdges ? 20000 : 4000;
+    while (edges.length < edgeCount && tries++ < maxTries) {
       const a = Math.floor(Math.random() * nodeCount);
       const b = Math.floor(Math.random() * nodeCount);
       const k = `${Math.min(a, b)}-${Math.max(a, b)}`;
       if (a === b || used.has(k)) continue;
-      // Long-edge bias: in addied/overcaffed, prefer nodes far apart on the sphere (>84°)
       if (mode.longEdges) {
         const dot = nodes[a].pos[0]*nodes[b].pos[0] + nodes[a].pos[1]*nodes[b].pos[1] + nodes[a].pos[2]*nodes[b].pos[2];
         if (dot > 0.1) continue;
+      } else {
+        const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
+        if (tooParallel(ax, edgeAxes)) continue;
+        edgeAxes.push(ax);
       }
-      const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
-      if (tooParallel(ax, edgeAxes, maxParallel)) continue;
       used.add(k);
-      edgeAxes.push(ax);
       const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
         ? nodes[a].type : nodes[b].type;
       edges.push({ a, b, rgb: dom.rgb });
@@ -207,7 +210,7 @@
     });
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
@@ -469,7 +472,7 @@
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ────────────────────────────────────────────────────────────────────────────────
+  // ── Mode switching ───────────────────────────────────────────────────────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
