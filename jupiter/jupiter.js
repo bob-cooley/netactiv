@@ -15,8 +15,6 @@
   const PACKET_COUNT = 28;
   const SPIN_MS      = 28000;
   const AUTO_SPIN    = 2 * Math.PI / SPIN_MS;
-  const RESUME_DELAY = 3500; // ms idle after drag before auto-spin resumes
-  const RESUME_RAMP  = 2500; // ms to fade back to full auto-spin rate
 
   // ── Node types — each color has a role ────────────────────────────────────
   //   relay    cyan    backbone routing
@@ -62,7 +60,6 @@
   let velX  = 0, velY = AUTO_SPIN; // angular velocity (rad/ms)
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
-  let lastInteract = -1e9; // ensures auto-spin runs from page load
 
   // ── 3-D helpers ─────────────────────────────────────────────────────
 
@@ -183,16 +180,13 @@
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
     lastTS = ts;
 
-    // After drag: fling decays to zero so globe holds position.
-    // Auto-spin resumes after RESUME_DELAY ms idle, ramping in over RESUME_RAMP ms.
     if (!isDrag) {
-      const idle = ts - lastInteract;
-      const spinTarget = idle < RESUME_DELAY ? 0
-        : AUTO_SPIN * Math.min(1, (idle - RESUME_DELAY) / RESUME_RAMP);
       rotM = mm(mrx(velX * dt), rotM);
       rotM = mm(mry(velY * dt), rotM);
       const decay = Math.pow(0.97, dt / 16.67);
       velX *= decay;
+      // Fling decays to AUTO_SPIN in whatever direction the user spun the globe
+      const spinTarget = velY < 0 ? -AUTO_SPIN : AUTO_SPIN;
       velY = spinTarget + (velY - spinTarget) * decay;
     }
 
@@ -370,7 +364,6 @@
 
   function onUp() {
     isDrag = false;
-    lastInteract = performance.now();
     canvas.style.cursor = 'grab';
   }
 
