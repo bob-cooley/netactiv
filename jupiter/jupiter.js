@@ -145,7 +145,7 @@
     packets = Array.from({ length: PACKET_COUNT }, () => ({
       edge:  Math.floor(Math.random() * edges.length),
       t:     Math.random(),
-      speed: 0.00028 + Math.random() * 0.00055,
+      speed: 0.0002 + Math.pow(Math.random(), 1.5) * 0.003,
     }));
   }
 
