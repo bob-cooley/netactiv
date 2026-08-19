@@ -38,7 +38,7 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3×3 matrix math ─────────────────────────────────────────────────────────
+  // ── 3×3 matrix math ─────────────────────────────────────────────
 
   const mm = (A, B) => [
     A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
@@ -54,14 +54,34 @@
   const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
   const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
 
-  // ── Orientation state ────────────────────────────────────────────────────────
+  // ── Orientation state ──────────────────────────────────────────
 
   let rotM  = mrz(TILT);   // start with axial tilt baked in
   let velX  = 0, velY = 0; // angular velocity (rad/ms)
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
 
-  // ── 3-D helpers ──────────────────────────────────────────────────────────────
+  // ── 3-D helpers ─────────────────────────────────────────────────────
+
+  function cross3(a, b) {
+    return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  }
+
+  function norm3(v) {
+    const l = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+    return l < 1e-9 ? v : [v[0]/l, v[1]/l, v[2]/l];
+  }
+
+  // returns true if axis ax is within ~35° of MAX_PARALLEL or more existing axes
+  const MAX_PARALLEL = 2;
+  const PARALLEL_DOT = 0.82;
+  function tooParallel(ax, axes) {
+    let n = 0;
+    for (const ex of axes) {
+      if (Math.abs(ax[0]*ex[0]+ax[1]*ex[1]+ax[2]*ex[2]) > PARALLEL_DOT && ++n >= MAX_PARALLEL) return true;
+    }
+    return false;
+  }
 
   function xyz(lat, lon) {
     const c = Math.cos(lat);
@@ -85,7 +105,7 @@
     return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
   }
 
-  // ── Scene init ───────────────────────────────────────────────────────────────
+  // ── Scene init ────────────────────────────────────────────────────────
 
   function buildScene() {
     stars = Array.from({ length: 320 }, () => ({
@@ -110,36 +130,41 @@
     });
 
     const used = new Set();
+    const edgeAxes = [];
     edges = [];
 
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
       const target = 5 + Math.floor(Math.random() * 2);
       let got = 0, t = 0;
-      while (got < target && t++ < 400) {
+      while (got < target && t++ < 600) {
         const b = Math.floor(Math.random() * NODE_COUNT);
         const k = `${Math.min(h, b)}-${Math.max(h, b)}`;
-        if (b !== h && !used.has(k)) {
-          used.add(k);
-          const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
-            ? nodes[h].type : nodes[b].type;
-          edges.push({ a: h, b, rgb: dom.rgb });
-          got++;
-        }
+        if (b === h || used.has(k)) continue;
+        const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
+        if (tooParallel(ax, edgeAxes)) continue;
+        used.add(k);
+        edgeAxes.push(ax);
+        const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
+          ? nodes[h].type : nodes[b].type;
+        edges.push({ a: h, b, rgb: dom.rgb });
+        got++;
       }
     });
 
     let tries = 0;
-    while (edges.length < EDGE_COUNT && tries++ < 1500) {
+    while (edges.length < EDGE_COUNT && tries++ < 2000) {
       const a = Math.floor(Math.random() * NODE_COUNT);
       const b = Math.floor(Math.random() * NODE_COUNT);
       const k = `${Math.min(a, b)}-${Math.max(a, b)}`;
-      if (a !== b && !used.has(k)) {
-        used.add(k);
-        const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
-          ? nodes[a].type : nodes[b].type;
-        edges.push({ a, b, rgb: dom.rgb });
-      }
+      if (a === b || used.has(k)) continue;
+      const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
+      if (tooParallel(ax, edgeAxes)) continue;
+      used.add(k);
+      edgeAxes.push(ax);
+      const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
+        ? nodes[a].type : nodes[b].type;
+      edges.push({ a, b, rgb: dom.rgb });
     }
 
     packets = Array.from({ length: PACKET_COUNT }, () => ({
@@ -149,7 +174,7 @@
     }));
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
@@ -315,7 +340,7 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ───────────────────────────────────────────────────────────────
+  // ── Drag input ───────────────────────────────────────────────────────────
 
   function onDown(x, y) {
     isDrag = true;
@@ -361,7 +386,7 @@
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Resize ───────────────────────────────────────────────────────────────────
+  // ── Resize ─────────────────────────────────────────────────────────────
 
   function resize() {
     W  = canvas.width  = window.innerWidth;
