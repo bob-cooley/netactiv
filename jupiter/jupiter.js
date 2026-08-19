@@ -57,7 +57,7 @@
   // ── Orientation state ──────────────────────────────────────────
 
   let rotM  = mrz(TILT);   // start with axial tilt baked in
-  let velX  = 0, velY = 0; // angular velocity (rad/ms)
+  let velX  = 0, velY = AUTO_SPIN; // angular velocity (rad/ms)
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
 
@@ -180,16 +180,13 @@
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
     lastTS = ts;
 
-    // Apply physics
+    // Apply physics — velY decays toward AUTO_SPIN so drags permanently shift orientation
     if (!isDrag) {
-      if (velX * velX + velY * velY > 1e-12) {
-        rotM = mm(mrx(velX * dt), rotM);
-        rotM = mm(mry(velY * dt), rotM);
-        const decay = Math.pow(0.97, dt / 16.67);
-        velX *= decay;
-        velY *= decay;
-      }
-      rotM = mm(mry(AUTO_SPIN * dt), rotM);
+      rotM = mm(mrx(velX * dt), rotM);
+      rotM = mm(mry(velY * dt), rotM);
+      const decay = Math.pow(0.97, dt / 16.67);
+      velX *= decay;
+      velY = AUTO_SPIN + (velY - AUTO_SPIN) * decay;
     }
 
     ctx.clearRect(0, 0, W, H);
@@ -346,7 +343,7 @@
     isDrag = true;
     lastPX = x; lastPY = y;
     lastPT = performance.now();
-    velX = 0; velY = 0;
+    velX = 0; velY = AUTO_SPIN;
     canvas.style.cursor = 'grabbing';
   }
 
