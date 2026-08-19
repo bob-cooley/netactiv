@@ -18,8 +18,8 @@
   const MODES = {
     chill:      { speedMult: 1.0, countMult: 1.0,                     dreamFlashes: false, flicker: false },
     rem:        { speedMult: 0.4, countMult: 0.3,                     dreamFlashes: true,  flicker: false },
-    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, longEdgeDot: 0.5, dreamFlashes: false, flicker: false, longEdges: true },
-    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, longEdgeDot: 0.5, dreamFlashes: false, flicker: true,  longEdges: true },
+    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: false },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: true  },
   };
   let currentMode = 'chill';
 
@@ -116,10 +116,11 @@
   // ── Scene init ────────────────────────────────────────────────────────────────────────────────────
 
   function buildScene() {
-    const mode        = MODES[currentMode];
-    const nodeCount   = Math.max(8,  Math.round(44  * (mode.nodeCountMult !== undefined ? mode.nodeCountMult : mode.countMult)));
-    const edgeCount   = Math.max(5,  Math.round(50  * mode.countMult));
-    const packetCount = Math.max(3,  Math.round(28  * mode.countMult));
+    const mode            = MODES[currentMode];
+    const nodeCount       = Math.max(8,  Math.round(44  * (mode.nodeCountMult !== undefined ? mode.nodeCountMult : mode.countMult)));
+    const edgeCount       = Math.max(5,  Math.round(50  * mode.countMult));
+    const packetCount     = Math.max(3,  Math.round(28  * mode.countMult));
+    const modeMaxParallel = mode.maxParallel !== undefined ? mode.maxParallel : MAX_PARALLEL;
 
     dreamFlashes = [];
 
@@ -147,7 +148,6 @@
     const used = new Set();
     const edgeAxes = [];
     edges = [];
-    const longEdgeDot = mode.longEdgeDot !== undefined ? mode.longEdgeDot : 0.1;
 
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
@@ -157,12 +157,8 @@
         const b = Math.floor(Math.random() * nodeCount);
         const k = `${Math.min(h, b)}-${Math.max(h, b)}`;
         if (b === h || used.has(k)) continue;
-        if (mode.longEdges) {
-          const dot = nodes[h].pos[0]*nodes[b].pos[0] + nodes[h].pos[1]*nodes[b].pos[1] + nodes[h].pos[2]*nodes[b].pos[2];
-          if (dot > longEdgeDot) continue;
-        }
         const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
-        if (!mode.longEdges && tooParallel(ax, edgeAxes)) continue;
+        if (tooParallel(ax, edgeAxes, modeMaxParallel)) continue;
         used.add(k);
         edgeAxes.push(ax);
         const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
@@ -173,20 +169,14 @@
     });
 
     let tries = 0;
-    const maxTries = mode.longEdges ? 20000 : 4000;
-    while (edges.length < edgeCount && tries++ < maxTries) {
+    while (edges.length < edgeCount && tries++ < 8000) {
       const a = Math.floor(Math.random() * nodeCount);
       const b = Math.floor(Math.random() * nodeCount);
       const k = `${Math.min(a, b)}-${Math.max(a, b)}`;
       if (a === b || used.has(k)) continue;
-      if (mode.longEdges) {
-        const dot = nodes[a].pos[0]*nodes[b].pos[0] + nodes[a].pos[1]*nodes[b].pos[1] + nodes[a].pos[2]*nodes[b].pos[2];
-        if (dot > longEdgeDot) continue;
-      } else {
-        const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
-        if (tooParallel(ax, edgeAxes)) continue;
-        edgeAxes.push(ax);
-      }
+      const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
+      if (tooParallel(ax, edgeAxes, modeMaxParallel)) continue;
+      edgeAxes.push(ax);
       used.add(k);
       const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
         ? nodes[a].type : nodes[b].type;
@@ -328,7 +318,7 @@
         const rp = proj(rot(sp));
         if (prev) {
           const mz   = (rp[2] + prev[2]) * 0.5;
-          const alph = (mz > 0 ? (0.06 + mz * 0.40) : (mode.longEdges ? 0.04 : 0.010)) * flickerMult;
+          const alph = (mz > 0 ? (0.06 + mz * 0.40) : 0.010) * flickerMult;
           ctx.beginPath();
           ctx.moveTo(prev[0], prev[1]);
           ctx.lineTo(rp[0], rp[1]);
