@@ -23,7 +23,7 @@
   };
   let currentMode = 'chill';
 
-  // ── Node types — each color has a role ───────────────────────────────────────────────────────────────────────────────
+  // ── Node types — each color has a role ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   //   relay    cyan    backbone routing
   //   hub      amber   high-traffic aggregation points (bigger, slower pulse)
   //   gateway  violet  encrypted inter-sector portals
@@ -45,7 +45,7 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3×3 matrix math ────────────────────────────────────────────────────────────────────────────────────────
+  // ── 3×3 matrix math ──────────────────────────────────────────────────────────────────────────────────────────────
 
   const mm = (A, B) => [
     A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
@@ -61,7 +61,7 @@
   const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
   const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
 
-  // ── Orientation state ──────────────────────────────────────────────────────────────────────────────
+  // ── Orientation state ──────────────────────────────────────────────────────────────────────────────────
 
   let rotM  = mrz(TILT);
   let velX  = 0, velY = AUTO_SPIN_BASE;
@@ -82,10 +82,11 @@
   // returns true if axis ax is within ~35° of MAX_PARALLEL or more existing axes
   const MAX_PARALLEL = 2;
   const PARALLEL_DOT = 0.82;
-  function tooParallel(ax, axes) {
+  function tooParallel(ax, axes, max) {
+    const limit = max !== undefined ? max : MAX_PARALLEL;
     let n = 0;
     for (const ex of axes) {
-      if (Math.abs(ax[0]*ex[0]+ax[1]*ex[1]+ax[2]*ex[2]) > PARALLEL_DOT && ++n >= MAX_PARALLEL) return true;
+      if (Math.abs(ax[0]*ex[0]+ax[1]*ex[1]+ax[2]*ex[2]) > PARALLEL_DOT && ++n >= limit) return true;
     }
     return false;
   }
@@ -112,7 +113,7 @@
     return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
   }
 
-  // ── Scene init ──────────────────────────────────────────────────────────────────────────────────
+  // ── Scene init ────────────────────────────────────────────────────────────────────────────────────
 
   function buildScene() {
     const mode        = MODES[currentMode];
@@ -147,6 +148,8 @@
     const edgeAxes = [];
     edges = [];
 
+    const maxParallel = mode.longEdges ? 4 : MAX_PARALLEL;
+
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
       const target = 5 + Math.floor(Math.random() * 2);
@@ -156,7 +159,7 @@
         const k = `${Math.min(h, b)}-${Math.max(h, b)}`;
         if (b === h || used.has(k)) continue;
         const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
-        if (tooParallel(ax, edgeAxes)) continue;
+        if (tooParallel(ax, edgeAxes, maxParallel)) continue;
         used.add(k);
         edgeAxes.push(ax);
         const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
@@ -178,7 +181,7 @@
         if (dot > 0.1) continue;
       }
       const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
-      if (tooParallel(ax, edgeAxes)) continue;
+      if (tooParallel(ax, edgeAxes, maxParallel)) continue;
       used.add(k);
       edgeAxes.push(ax);
       const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
@@ -321,7 +324,7 @@
         const rp = proj(rot(sp));
         if (prev) {
           const mz   = (rp[2] + prev[2]) * 0.5;
-          const alph = (mz > 0 ? (0.06 + mz * 0.40) : 0.010) * flickerMult;
+          const alph = (mz > 0 ? (0.06 + mz * 0.40) : (mode.longEdges ? 0.04 : 0.010)) * flickerMult;
           ctx.beginPath();
           ctx.moveTo(prev[0], prev[1]);
           ctx.lineTo(rp[0], rp[1]);
@@ -420,7 +423,7 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ────────────────────────────────────────────────────────────────────────────────────────────
+  // ── Drag input ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   function onDown(x, y) {
     isDrag = true;
@@ -466,7 +469,7 @@
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ────────────────────────────────────────────────────────────────────────────
+  // ── Mode switching ────────────────────────────────────────────────────────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
