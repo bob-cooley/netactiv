@@ -6,7 +6,7 @@
   <title>Neuralvex IV — netActiv</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -86,8 +86,8 @@
     /* ── Control buttons — top right ── */
     .controls {
       position: fixed;
-      top: 20px;
-      right: 20px;
+      top: 16px;
+      right: 16px;
       z-index: 20;
       display: flex;
       gap: 8px;
@@ -95,208 +95,253 @@
     }
 
     .ctrl-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(2, 4, 13, 0.82);
-      border: 1px solid rgba(0, 180, 220, 0.25);
-      color: rgba(0, 195, 235, 0.60);
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(10, 15, 26, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.70);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      transition: border-color 0.18s, color 0.18s, background 0.18s;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
 
     .ctrl-btn svg {
-      width: 16px;
-      height: 16px;
+      width: 22px;
+      height: 22px;
       fill: currentColor;
       display: block;
     }
 
     .ctrl-btn:hover {
-      border-color: rgba(0, 210, 255, 0.55);
-      color: rgba(0, 230, 255, 0.95);
-      background: rgba(0, 25, 45, 0.88);
+      background: rgba(0, 20, 38, 0.95);
+      border-color: rgba(0, 195, 240, 0.40);
+      color: rgba(255, 255, 255, 0.95);
     }
 
     .ctrl-btn.active {
-      border-color: rgba(0, 210, 255, 0.55);
-      color: rgba(0, 230, 255, 0.95);
+      background: rgba(0, 20, 38, 0.95);
+      border-color: rgba(0, 195, 240, 0.70);
+      color: white;
     }
 
-    /* ── Settings panel — slides in from right ── */
-    .settings-panel {
+    /* ── Floating panels — drop below buttons ── */
+    .float-panel {
       position: fixed;
-      top: 0;
-      right: 0;
-      height: 100vh;
-      width: 210px;
-      background: rgba(2, 4, 13, 0.95);
-      border-left: 1px solid rgba(0, 160, 210, 0.16);
+      top: 76px;
+      right: 16px;
+      width: 248px;
+      background: rgba(10, 14, 24, 0.97);
+      border-radius: 14px;
+      padding: 20px 20px 18px;
       z-index: 15;
-      padding: 72px 22px 24px;
-      transform: translateX(100%);
-      transition: transform 0.25s ease;
+      display: none;
     }
 
-    .settings-panel.open { transform: translateX(0); }
+    .float-panel.open { display: block; }
 
-    .panel-title {
+    .panel-header {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    /* ── Sound panel — toggles ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+    }
+
+    .toggle-info { flex: 1; }
+
+    .toggle-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 2px;
+    }
+
+    .toggle-desc {
+      font-size: 11px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.02em;
+    }
+
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .toggle-state {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.06em;
+      min-width: 24px;
+      text-align: right;
+    }
+
+    .toggle-state.on { color: rgba(0, 195, 240, 0.90); }
+
+    /* Toggle pill */
+    .toggle {
+      position: relative;
+      width: 50px;
+      height: 28px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-pill {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      background: #3a3f52;
+      transition: background 0.2s;
+    }
+
+    .toggle-pill::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 11px;
+      background: #ffffff;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .toggle input:checked + .toggle-pill {
+      background: #00bcd4;
+    }
+
+    .toggle input:checked + .toggle-pill::after {
+      transform: translateX(22px);
+    }
+
+    /* ── Settings panel ── */
+    .setting-section {
+      margin-bottom: 14px;
+    }
+
+    .setting-section-label {
       font-size: 10px;
-      font-weight: 400;
-      letter-spacing: 0.24em;
+      font-weight: 600;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: rgba(0, 195, 240, 0.50);
-      margin-bottom: 22px;
-    }
-
-    .setting-group { margin-bottom: 18px; }
-
-    .setting-label {
-      font-size: 9px;
-      font-weight: 400;
-      letter-spacing: 0.20em;
-      text-transform: uppercase;
-      color: rgba(0, 155, 195, 0.42);
+      color: rgba(0, 195, 240, 0.70);
       margin-bottom: 6px;
     }
 
-    .setting-option {
+    .setting-btn {
       display: block;
       width: 100%;
-      background: rgba(0, 25, 45, 0.55);
-      border: 1px solid rgba(0, 145, 195, 0.20);
-      border-radius: 4px;
-      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 10px 14px;
       font-family: 'Inter', Helvetica Neue, sans-serif;
-      font-size: 12px;
-      font-weight: 300;
-      color: rgba(0, 200, 240, 0.70);
-      letter-spacing: 0.06em;
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: 0.02em;
       text-align: left;
       cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
+      transition: border-color 0.15s, background 0.15s;
       margin-bottom: 4px;
     }
 
-    .setting-option:hover,
-    .setting-option.selected {
-      border-color: rgba(0, 195, 240, 0.45);
-      color: rgba(0, 225, 255, 1);
+    .setting-btn:hover,
+    .setting-btn.selected {
+      background: rgba(0, 195, 240, 0.08);
+      border-color: rgba(0, 195, 240, 0.35);
+      color: #ffffff;
     }
 
-    /* ── Info overlay ── */
-    .info-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      background: rgba(2, 4, 13, 0.68);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.22s;
-    }
-
-    .info-overlay.open {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    .info-panel {
-      background: rgba(3, 7, 20, 0.97);
-      border: 1px solid rgba(0, 165, 215, 0.26);
-      border-radius: 6px;
-      padding: 28px 30px 24px;
-      width: 310px;
-      position: relative;
-    }
-
-    .close-btn {
-      position: absolute;
-      top: 12px;
-      right: 14px;
-      background: none;
-      border: none;
-      color: rgba(0, 170, 215, 0.40);
-      font-size: 13px;
-      cursor: pointer;
-      padding: 4px 6px;
-      line-height: 1;
-      transition: color 0.15s;
-    }
-
-    .close-btn:hover { color: rgba(0, 225, 255, 0.90); }
-
-    .info-title {
-      font-size: 12px;
-      font-weight: 400;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: rgba(80, 222, 255, 0.88);
-      margin-bottom: 3px;
-    }
-
-    .info-subtitle {
-      font-size: 10px;
-      font-weight: 300;
+    /* ── Info panel ── */
+    .info-section-label {
+      font-size: 11px;
+      font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: rgba(0, 195, 255, 0.38);
-      margin-bottom: 18px;
+      color: rgba(0, 195, 240, 0.85);
+      margin: 14px 0 8px;
     }
 
-    .info-divider {
-      height: 1px;
-      background: rgba(0, 155, 210, 0.14);
-      margin: 14px 0;
-    }
-
-    .info-desc {
-      font-size: 11px;
-      font-weight: 300;
-      color: rgba(0, 185, 230, 0.48);
-      line-height: 1.75;
-      letter-spacing: 0.04em;
-    }
-
-    .info-controls {
-      font-size: 10px;
-      font-weight: 300;
-      color: rgba(0, 155, 200, 0.40);
-      line-height: 1.85;
-      letter-spacing: 0.06em;
-    }
-
-    .info-controls b {
-      color: rgba(0, 200, 240, 0.62);
-      font-weight: 400;
-    }
+    .info-section-label:first-of-type { margin-top: 0; }
 
     .info-row {
       display: flex;
       justify-content: space-between;
-      font-size: 10px;
-      font-weight: 300;
-      letter-spacing: 0.08em;
-      color: rgba(0, 175, 220, 0.42);
-      padding: 3px 0;
+      align-items: baseline;
+      padding: 4px 0;
     }
 
-    .info-row span { color: rgba(0, 205, 245, 0.68); }
+    .info-key {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(0, 195, 240, 0.60);
+      flex-shrink: 0;
+      min-width: 64px;
+    }
+
+    .info-val {
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.85);
+      text-align: right;
+    }
+
+    .info-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.07);
+      margin: 14px 0;
+    }
+
+    .info-body {
+      font-size: 12px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.38);
+      line-height: 1.65;
+      letter-spacing: 0.02em;
+    }
+
+    .info-credit {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.32);
+      text-align: right;
+      margin-top: 10px;
+      letter-spacing: 0.02em;
+    }
 
     .info-version {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 300;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(0, 155, 200, 0.30);
-      text-align: right;
-      margin-top: 16px;
+      color: rgba(255, 255, 255, 0.25);
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -333,93 +378,127 @@
     </button>
   </div>
 
-  <!-- Settings panel -->
-  <div class="settings-panel" id="settings-panel">
-    <div class="panel-title">Settings</div>
+  <!-- Sound panel -->
+  <div class="float-panel" id="panel-sound">
+    <div class="panel-header">Sound</div>
 
-    <div class="setting-group">
-      <div class="setting-label">Display</div>
-      <button class="setting-option selected">Default</button>
-    </div>
-
-    <div class="setting-group">
-      <div class="setting-label">Speed</div>
-      <button class="setting-option selected">Normal</button>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-name">Sound</div>
+        <div class="toggle-desc">ambient audio</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-state on" id="sound-state">ON</span>
+        <label class="toggle">
+          <input type="checkbox" id="sound-toggle" checked>
+          <span class="toggle-pill"></span>
+        </label>
+      </div>
     </div>
   </div>
 
-  <!-- Info overlay -->
-  <div class="info-overlay" id="info-overlay">
-    <div class="info-panel">
-      <button class="close-btn" id="close-info">✕</button>
-      <div class="info-title">Neuralvex IV</div>
-      <div class="info-subtitle">Neuralvex System &middot; Class IV</div>
-      <div class="info-desc">
-        Real-time neural network topology visualization. An interactive 3D sphere depicting
-        live data routing across a distributed network architecture.
-      </div>
-      <div class="info-divider"></div>
-      <div class="info-controls">
-        <b>Drag</b> &nbsp;·&nbsp; Rotate the globe in any direction<br>
-        <b>Fling</b> &nbsp;·&nbsp; Release with momentum to spin freely
-      </div>
-      <div class="info-divider"></div>
-      <div class="info-row">Nodes <span>44 active</span></div>
-      <div class="info-row">Pathways <span>50 edges</span></div>
-      <div class="info-row">Packets in transit <span>28</span></div>
-      <div class="info-divider"></div>
-      <div class="info-version">netActiv &nbsp;·&nbsp; v 1.0 &nbsp;·&nbsp; 2025</div>
+  <!-- Settings panel -->
+  <div class="float-panel" id="panel-settings">
+    <div class="panel-header">Game Menu</div>
+
+    <div class="setting-section">
+      <div class="setting-section-label">Display</div>
+      <button class="setting-btn selected">Default</button>
     </div>
+
+    <div class="setting-section">
+      <div class="setting-section-label">Rotation Speed</div>
+      <button class="setting-btn selected">Normal</button>
+    </div>
+
+    <div class="setting-section">
+      <div class="setting-section-label">Node Density</div>
+      <button class="setting-btn selected">Standard</button>
+    </div>
+  </div>
+
+  <!-- Info panel -->
+  <div class="float-panel" id="panel-info">
+    <div class="panel-header">Neuralvex IV</div>
+
+    <div class="info-section-label">Mouse</div>
+    <div class="info-row"><span class="info-key">Drag</span><span class="info-val">Rotate globe</span></div>
+    <div class="info-row"><span class="info-key">Fling</span><span class="info-val">Spin with momentum</span></div>
+
+    <div class="info-section-label">Touch</div>
+    <div class="info-row"><span class="info-key">Drag</span><span class="info-val">Rotate globe</span></div>
+    <div class="info-row"><span class="info-key">Fling</span><span class="info-val">Spin with momentum</span></div>
+
+    <div class="info-divider"></div>
+
+    <div class="info-body">
+      Real-time neural network topology visualization for netActiv.
+      An interactive 3D sphere depicting live data routing across a
+      distributed network architecture.
+    </div>
+
+    <div class="info-credit">netActiv &nbsp;&middot;&nbsp; netactiv.com</div>
+    <div class="info-version">version 1.0</div>
   </div>
 
   <script>
-    // ── Controls ───────────────────────────────────────────────────────────────────────────
-    let soundOn = true;
+    // ── Controls ──────────────────────────────────────────────────────────────────
+    const panels = {
+      sound:    document.getElementById('panel-sound'),
+      settings: document.getElementById('panel-settings'),
+      info:     document.getElementById('panel-info'),
+    };
+    const btns = {
+      sound:    document.getElementById('btn-sound'),
+      settings: document.getElementById('btn-settings'),
+      info:     document.getElementById('btn-info'),
+    };
 
-    const btnSound      = document.getElementById('btn-sound');
-    const btnSettings   = document.getElementById('btn-settings');
-    const btnInfo       = document.getElementById('btn-info');
-    const iconSoundOn   = document.getElementById('icon-sound-on');
-    const iconSoundOff  = document.getElementById('icon-sound-off');
-    const settingsPanel = document.getElementById('settings-panel');
-    const infoOverlay   = document.getElementById('info-overlay');
-    const closeInfoBtn  = document.getElementById('close-info');
-
-    btnSound.addEventListener('click', () => {
-      soundOn = !soundOn;
-      iconSoundOn.style.display  = soundOn ? '' : 'none';
-      iconSoundOff.style.display = soundOn ? 'none' : '';
-      btnSound.classList.toggle('active', soundOn);
-    });
-
-    btnSettings.addEventListener('click', () => {
-      const open = settingsPanel.classList.toggle('open');
-      btnSettings.classList.toggle('active', open);
-      if (open) {
-        infoOverlay.classList.remove('open');
-        btnInfo.classList.remove('active');
+    function togglePanel(key) {
+      const isOpen = panels[key].classList.contains('open');
+      // close all
+      Object.keys(panels).forEach(k => {
+        panels[k].classList.remove('open');
+        btns[k].classList.remove('active');
+      });
+      if (!isOpen) {
+        panels[key].classList.add('open');
+        btns[key].classList.add('active');
+      } else if (key === 'sound') {
+        // sound button stays active when sound is on
+        updateSoundBtn();
       }
-    });
+    }
 
-    btnInfo.addEventListener('click', () => {
-      const open = infoOverlay.classList.toggle('open');
-      btnInfo.classList.toggle('active', open);
-      if (open) {
-        settingsPanel.classList.remove('open');
-        btnSettings.classList.remove('active');
+    function updateSoundBtn() {
+      const on = document.getElementById('sound-toggle').checked;
+      document.getElementById('icon-sound-on').style.display  = on ? '' : 'none';
+      document.getElementById('icon-sound-off').style.display = on ? 'none' : '';
+      // keep active styling when panel is closed if sound is on
+      if (!panels.sound.classList.contains('open')) {
+        btns.sound.classList.toggle('active', on);
       }
+    }
+
+    btns.sound.addEventListener('click',    () => togglePanel('sound'));
+    btns.settings.addEventListener('click', () => togglePanel('settings'));
+    btns.info.addEventListener('click',     () => togglePanel('info'));
+
+    document.getElementById('sound-toggle').addEventListener('change', function () {
+      const on = this.checked;
+      const stateEl = document.getElementById('sound-state');
+      stateEl.textContent = on ? 'ON' : 'OFF';
+      stateEl.classList.toggle('on', on);
+      updateSoundBtn();
     });
 
-    closeInfoBtn.addEventListener('click', () => {
-      infoOverlay.classList.remove('open');
-      btnInfo.classList.remove('active');
-    });
-
-    infoOverlay.addEventListener('click', e => {
-      if (e.target === infoOverlay) {
-        infoOverlay.classList.remove('open');
-        btnInfo.classList.remove('active');
-      }
+    // Close panels when clicking canvas
+    document.getElementById('neuralvex-canvas').addEventListener('mousedown', () => {
+      Object.keys(panels).forEach(k => {
+        panels[k].classList.remove('open');
+        btns[k].classList.remove('active');
+      });
+      updateSoundBtn();
     });
   </script>
 
