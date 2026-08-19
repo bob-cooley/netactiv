@@ -167,11 +167,21 @@
       edges.push({ a, b, rgb: dom.rgb });
     }
 
-    packets = Array.from({ length: PACKET_COUNT }, () => ({
-      edge:  Math.floor(Math.random() * edges.length),
-      t:     Math.random(),
-      speed: 0.0002 + Math.pow(Math.random(), 1.5) * 0.003,
-    }));
+    const SLOW_CAP   = 4;
+    const SLOW_FLOOR = 0.0002 + 0.003 * 0.20; // bottom 20% of range
+    const slowEdges  = new Set();
+    let slowCount    = 0;
+    packets = Array.from({ length: PACKET_COUNT }, () => {
+      const edge = Math.floor(Math.random() * edges.length);
+      let speed  = 0.0002 + Math.pow(Math.random(), 1.5) * 0.003;
+      if (speed < SLOW_FLOOR && (slowCount >= SLOW_CAP || slowEdges.has(edge))) {
+        speed = SLOW_FLOOR + Math.random() * (0.0032 - SLOW_FLOOR);
+      } else if (speed < SLOW_FLOOR) {
+        slowCount++;
+        slowEdges.add(edge);
+      }
+      return { edge, t: Math.random(), speed };
+    });
   }
 
   // ── Render ───────────────────────────────────────────────────────────
