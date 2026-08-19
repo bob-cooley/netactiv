@@ -402,18 +402,11 @@
     <div class="panel-header">Game Menu</div>
 
     <div class="setting-section">
-      <div class="setting-section-label">Display</div>
-      <button class="setting-btn selected">Default</button>
-    </div>
-
-    <div class="setting-section">
-      <div class="setting-section-label">Rotation Speed</div>
-      <button class="setting-btn selected">Normal</button>
-    </div>
-
-    <div class="setting-section">
-      <div class="setting-section-label">Node Density</div>
-      <button class="setting-btn selected">Standard</button>
+      <div class="setting-section-label">Display Mode</div>
+      <button class="setting-btn selected" data-mode="chill">Chill</button>
+      <button class="setting-btn" data-mode="rem">REM State</button>
+      <button class="setting-btn" data-mode="addied">Addied</button>
+      <button class="setting-btn" data-mode="overcaffed">OverCaffed</button>
     </div>
   </div>
 
@@ -492,6 +485,15 @@
       updateSoundBtn();
     });
 
+    // Mode buttons
+    document.querySelectorAll('.setting-btn[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.setting-btn[data-mode]').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        if (window.setDisplayMode) window.setDisplayMode(btn.dataset.mode);
+      });
+    });
+
     // Close panels when clicking canvas
     document.getElementById('neuralvex-canvas').addEventListener('mousedown', () => {
       Object.keys(panels).forEach(k => {
@@ -502,6 +504,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=9"></script>
+  <script src="jupiter.js?v=10"></script>
 </body>
 </html>
