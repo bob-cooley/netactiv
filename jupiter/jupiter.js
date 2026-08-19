@@ -18,8 +18,8 @@
   const MODES = {
     chill:      { speedMult: 1.0, countMult: 1.0,                     dreamFlashes: false, flicker: false },
     rem:        { speedMult: 0.4, countMult: 0.3,                     dreamFlashes: true,  flicker: false },
-    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 1.0, dreamFlashes: false, flicker: false, longEdges: true },
-    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 1.0, dreamFlashes: false, flicker: true,  longEdges: true },
+    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, longEdgeDot: 0.5, dreamFlashes: false, flicker: false, longEdges: true },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, longEdgeDot: 0.5, dreamFlashes: false, flicker: true,  longEdges: true },
   };
   let currentMode = 'chill';
 
@@ -147,6 +147,7 @@
     const used = new Set();
     const edgeAxes = [];
     edges = [];
+    const longEdgeDot = mode.longEdgeDot !== undefined ? mode.longEdgeDot : 0.1;
 
     const hubIdxs = nodes.reduce((a, nd, i) => nd.type.id === 'hub' ? [...a, i] : a, []);
     hubIdxs.forEach(h => {
@@ -158,7 +159,7 @@
         if (b === h || used.has(k)) continue;
         if (mode.longEdges) {
           const dot = nodes[h].pos[0]*nodes[b].pos[0] + nodes[h].pos[1]*nodes[b].pos[1] + nodes[h].pos[2]*nodes[b].pos[2];
-          if (dot > 0.1) continue;
+          if (dot > longEdgeDot) continue;
         }
         const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
         if (!mode.longEdges && tooParallel(ax, edgeAxes)) continue;
@@ -180,7 +181,7 @@
       if (a === b || used.has(k)) continue;
       if (mode.longEdges) {
         const dot = nodes[a].pos[0]*nodes[b].pos[0] + nodes[a].pos[1]*nodes[b].pos[1] + nodes[a].pos[2]*nodes[b].pos[2];
-        if (dot > 0.1) continue;
+        if (dot > longEdgeDot) continue;
       } else {
         const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
         if (tooParallel(ax, edgeAxes)) continue;
