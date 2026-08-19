@@ -16,10 +16,10 @@
   const AUTO_SPIN_BASE = 2 * Math.PI / SPIN_MS;
 
   const MODES = {
-    chill:      { speedMult: 1.0, countMult: 1.0, dreamFlashes: false, flicker: false },
-    rem:        { speedMult: 0.4, countMult: 0.3, dreamFlashes: true,  flicker: false },
-    addied:     { speedMult: 3.0, countMult: 4.0, dreamFlashes: false, flicker: false, longEdges: true },
-    overcaffed: { speedMult: 3.0, countMult: 4.0, dreamFlashes: false, flicker: true,  longEdges: true },
+    chill:      { speedMult: 1.0, countMult: 1.0,                     dreamFlashes: false, flicker: false },
+    rem:        { speedMult: 0.4, countMult: 0.3,                     dreamFlashes: true,  flicker: false },
+    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 1.0, dreamFlashes: false, flicker: false, longEdges: true },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 1.0, dreamFlashes: false, flicker: true,  longEdges: true },
   };
   let currentMode = 'chill';
 
@@ -117,7 +117,7 @@
 
   function buildScene() {
     const mode        = MODES[currentMode];
-    const nodeCount   = Math.max(8,  Math.round(44  * mode.countMult));
+    const nodeCount   = Math.max(8,  Math.round(44  * (mode.nodeCountMult !== undefined ? mode.nodeCountMult : mode.countMult)));
     const edgeCount   = Math.max(5,  Math.round(50  * mode.countMult));
     const packetCount = Math.max(3,  Math.round(28  * mode.countMult));
 
