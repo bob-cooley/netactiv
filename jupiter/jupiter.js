@@ -18,8 +18,8 @@
   const MODES = {
     chill:      { speedMult: 1.0, countMult: 1.0,                     dreamFlashes: false, flicker: false },
     rem:        { speedMult: 0.4, countMult: 0.3,                     dreamFlashes: true,  flicker: false },
-    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: false },
-    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: true  },
+    addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, packetCountMult: 1.0, maxParallel: 10, dreamFlashes: false, flicker: false },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, packetCountMult: 1.0, maxParallel: 10, dreamFlashes: false, flicker: true  },
   };
   let currentMode = 'chill';
 
@@ -119,7 +119,7 @@
     const mode            = MODES[currentMode];
     const nodeCount       = Math.max(8,  Math.round(44  * (mode.nodeCountMult !== undefined ? mode.nodeCountMult : mode.countMult)));
     const edgeCount       = Math.max(5,  Math.round(50  * mode.countMult));
-    const packetCount     = Math.max(3,  Math.round(28  * mode.countMult));
+    const packetCount     = Math.max(3,  Math.round(28  * (mode.packetCountMult !== undefined ? mode.packetCountMult : mode.countMult)));
     const modeMaxParallel = mode.maxParallel !== undefined ? mode.maxParallel : MAX_PARALLEL;
 
     dreamFlashes = [];
