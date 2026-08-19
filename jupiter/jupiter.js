@@ -23,7 +23,7 @@
   };
   let currentMode = 'chill';
 
-  // ── Node types — each color has a role ───────────────────────────────────────────
+  // ── Node types — each color has a role ───────────────────────────────────────────────────
   //   relay    cyan    backbone routing
   //   hub      amber   high-traffic aggregation points (bigger, slower pulse)
   //   gateway  violet  encrypted inter-sector portals
@@ -45,7 +45,7 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3×3 matrix math ─────────────────────────────────────────────────────
+  // ── 3×3 matrix math ──────────────────────────────────────────────────────────────────────
 
   const mm = (A, B) => [
     A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
@@ -61,14 +61,14 @@
   const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
   const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
 
-  // ── Orientation state ──────────────────────────────────────────────
+  // ── Orientation state ─────────────────────────────────────────────────────────
 
   let rotM  = mrz(TILT);
   let velX  = 0, velY = AUTO_SPIN_BASE;
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
 
-  // ── 3-D helpers ────────────────────────────────────────────────────────────
+  // ── 3-D helpers ────────────────────────────────────────────────────────────────────
 
   function cross3(a, b) {
     return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
@@ -112,7 +112,7 @@
     return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
   }
 
-  // ── Scene init ─────────────────────────────────────────────────────────────
+  // ── Scene init ────────────────────────────────────────────────────────────────────
 
   function buildScene() {
     const mode        = MODES[currentMode];
@@ -199,7 +199,7 @@
     });
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
@@ -221,8 +221,8 @@
         lastJolt = ts;
       }
     }
-    const joltX = (mode.flicker && ts < joltEnd) ? (Math.random() - 0.5) * 8 : 0;
-    const joltY = (mode.flicker && ts < joltEnd) ? (Math.random() - 0.5) * 8 : 0;
+    const joltX = (mode.flicker && ts < joltEnd) ? (Math.random() - 0.5) * 36 : 0;
+    const joltY = (mode.flicker && ts < joltEnd) ? (Math.random() - 0.5) * 36 : 0;
 
     if (!isDrag) {
       rotM = mm(mrx(velX * dt), rotM);
@@ -415,7 +415,7 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ───────────────────────────────────────────────────────────────
+  // ── Drag input ───────────────────────────────────────────────────────────────────────
 
   function onDown(x, y) {
     isDrag = true;
@@ -461,7 +461,7 @@
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ────────────────────────────────────────────────────────
+  // ── Mode switching ────────────────────────────────────────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
@@ -472,7 +472,7 @@
     if (!isDrag) velY = velY < 0 ? -autoSpin : autoSpin;
   };
 
-  // ── Resize ───────────────────────────────────────────────────────────
+  // ── Resize ───────────────────────────────────────────────────────────────────
 
   function resize() {
     W  = canvas.width  = window.innerWidth;
