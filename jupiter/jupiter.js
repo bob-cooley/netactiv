@@ -3,6 +3,7 @@
   const ctx    = canvas.getContext('2d');
 
   let W, H, cx, cy, R, rafId;
+  let Rdraw = 0;   // per-frame effective radius: R × bass scale
   let stars = [];
   let nodes = [], edges = [], packets = [];
   let dreamFlashes = [];
@@ -23,12 +24,7 @@
   };
   let currentMode = 'chill';
 
-  // ── Node types — each color has a role ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  //   relay    cyan    backbone routing
-  //   hub      amber   high-traffic aggregation points (bigger, slower pulse)
-  //   gateway  violet  encrypted inter-sector portals
-  //   core     white   critical infrastructure (brightest, steadiest)
-  //   transfer green   active data-transfer endpoints (fastest pulse)
+  // ── Node types ───────────────────────────────────────────────────────────────
   const NODE_TYPES = [
     { id: 'relay',    rgb: [0,   255, 218], weight: 0.42, glowScale: 1.00, pulseSpeed: 1.00 },
     { id: 'hub',      rgb: [255, 178,   0], weight: 0.15, glowScale: 1.70, pulseSpeed: 0.55 },
@@ -45,41 +41,31 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3×3 matrix math ──────────────────────────────────────────────────────────────────────────────────────────────
-
+  // ── 3×3 matrix math ──────────────────────────────────────────────────────────
   const mm = (A, B) => [
     A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
     A[3]*B[0]+A[4]*B[3]+A[5]*B[6], A[3]*B[1]+A[4]*B[4]+A[5]*B[7], A[3]*B[2]+A[4]*B[5]+A[5]*B[8],
     A[6]*B[0]+A[7]*B[3]+A[8]*B[6], A[6]*B[1]+A[7]*B[4]+A[8]*B[7], A[6]*B[2]+A[7]*B[5]+A[8]*B[8],
   ];
-  const mv  = (M, v) => [
-    M[0]*v[0]+M[1]*v[1]+M[2]*v[2],
-    M[3]*v[0]+M[4]*v[1]+M[5]*v[2],
-    M[6]*v[0]+M[7]*v[1]+M[8]*v[2],
-  ];
+  const mv  = (M, v) => [M[0]*v[0]+M[1]*v[1]+M[2]*v[2], M[3]*v[0]+M[4]*v[1]+M[5]*v[2], M[6]*v[0]+M[7]*v[1]+M[8]*v[2]];
   const mrx = a => { const c=Math.cos(a),s=Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; };
   const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
   const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
 
-  // ── Orientation state ──────────────────────────────────────────────────────────────────────────────────
-
-  let rotM  = mrz(TILT);
-  let velX  = 0, velY = AUTO_SPIN_BASE;
+  // ── Orientation state ─────────────────────────────────────────────────────────
+  let rotM   = mrz(TILT);
+  let velX   = 0, velY = AUTO_SPIN_BASE;
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
 
-  // ── 3-D helpers ────────────────────────────────────────────────────────────────────────────────────
-
-  function cross3(a, b) {
-    return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-  }
+  // ── 3-D helpers ───────────────────────────────────────────────────────────────
+  function cross3(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
 
   function norm3(v) {
     const l = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
     return l < 1e-9 ? v : [v[0]/l, v[1]/l, v[2]/l];
   }
 
-  // returns true if axis ax is within ~35° of MAX_PARALLEL or more existing axes
   const MAX_PARALLEL = 2;
   const PARALLEL_DOT = 0.82;
   function tooParallel(ax, axes, max) {
@@ -91,16 +77,11 @@
     return false;
   }
 
-  function xyz(lat, lon) {
-    const c = Math.cos(lat);
-    return [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)];
-  }
-
+  function xyz(lat, lon) { const c = Math.cos(lat); return [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)]; }
   function rot(p) { return mv(rotM, p); }
 
-  function proj(p) {
-    return [cx + R * p[0], cy - R * p[1], p[2]];
-  }
+  // proj uses Rdraw so bass expansion applies everywhere
+  function proj(p) { return [cx + Rdraw * p[0], cy - Rdraw * p[1], p[2]]; }
 
   function slerp(a, b, t) {
     let dot = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
@@ -108,16 +89,263 @@
     const omega = Math.acos(dot);
     if (omega < 1e-6) return [a[0], a[1], a[2]];
     const s = Math.sin(omega);
-    const fa = Math.sin((1 - t) * omega) / s;
-    const fb = Math.sin(t * omega) / s;
-    return [a[0]*fa + b[0]*fb, a[1]*fa + b[1]*fb, a[2]*fa + b[2]*fb];
+    return [a[0]*Math.sin((1-t)*omega)/s + b[0]*Math.sin(t*omega)/s,
+            a[1]*Math.sin((1-t)*omega)/s + b[1]*Math.sin(t*omega)/s,
+            a[2]*Math.sin((1-t)*omega)/s + b[2]*Math.sin(t*omega)/s];
   }
 
-  // ── Scene init ────────────────────────────────────────────────────────────────────────────────────
+  // ── Audio engine ──────────────────────────────────────────────────────────────
+
+  let audioCtx    = null;
+  let analyser    = null;
+  let freqData    = null;
+  let micStream   = null;
+  let builtinNode = null;
+  let audioMode   = 'off';   // 'off' | 'mic' | 'builtin' | 'spotify'
+
+  let bassEnergy    = 0;
+  let midEnergy     = 0;
+  let highEnergy    = 0;
+  let overallEnergy = 0;
+
+  function ensureAudioCtx() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser  = audioCtx.createAnalyser();
+    analyser.fftSize               = 2048;
+    analyser.smoothingTimeConstant = 0.80;
+    freqData  = new Uint8Array(analyser.frequencyBinCount);
+  }
+
+  function disableAudio() {
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (builtinNode && analyser) {
+      try { builtinNode.disconnect(analyser); } catch(e) {}
+    }
+    const el = document.getElementById('audio-builtin');
+    if (el) el.pause();
+    bassEnergy = midEnergy = highEnergy = overallEnergy = 0;
+    audioMode = 'off';
+  }
+
+  async function enableMic() {
+    disableAudio();
+    ensureAudioCtx();
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const src = audioCtx.createMediaStreamSource(micStream);
+      src.connect(analyser);
+      audioMode = 'mic';
+      return true;
+    } catch(e) {
+      micStream = null;
+      audioMode = 'off';
+      return false;
+    }
+  }
+
+  function enableBuiltin() {
+    disableAudio();
+    ensureAudioCtx();
+    const el = document.getElementById('audio-builtin');
+    if (!el) return;
+    if (!builtinNode) {
+      builtinNode = audioCtx.createMediaElementSource(el);
+      builtinNode.connect(audioCtx.destination);  // so we hear it
+    }
+    builtinNode.connect(analyser);
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    el.loop = true;
+    el.play().catch(() => {});
+    audioMode = 'builtin';
+  }
+
+  // FFT_SIZE=2048 @ ~44100Hz → bin ≈ 21.5Hz
+  // Bass bins 1-10  (~21–215Hz), Mid 10-80  (~215–1720Hz), High 80-200 (~1720–4300Hz)
+  function tickAudio() {
+    if (!analyser || !freqData || (audioMode !== 'mic' && audioMode !== 'builtin')) return;
+    analyser.getByteFrequencyData(freqData);
+    const avg = (lo, hi) => {
+      let s = 0; for (let i = lo; i < hi; i++) s += freqData[i];
+      return s / ((hi - lo) * 255);
+    };
+    const rB = avg(1, 10);
+    const rM = avg(10, 80);
+    const rH = avg(80, 200);
+    const rO = avg(0, 200);
+    // Fast attack, slow decay — gives punchy feel on beats
+    bassEnergy    += (rB - bassEnergy)    * (rB > bassEnergy    ? 0.55 : 0.12);
+    midEnergy     += (rM - midEnergy)     * (rM > midEnergy     ? 0.40 : 0.12);
+    highEnergy    += (rH - highEnergy)    * (rH > highEnergy    ? 0.40 : 0.12);
+    overallEnergy += (rO - overallEnergy) * 0.20;
+  }
+
+  // ── Spotify ───────────────────────────────────────────────────────────────────
+
+  let spToken        = localStorage.getItem('sp_token')   || null;
+  let spBeatGrid     = null;
+  let spCurrentTrack = null;
+  let spSongStart    = 0;
+  let spLastPollTS   = 0;
+  let spPolling      = false;
+  const SP_POLL_MS   = 3000;
+
+  const spClientId   = () => localStorage.getItem('sp_client_id') || '';
+  const spRedirectUri = () => window.location.origin + window.location.pathname;
+
+  function spRandomStr(n) {
+    const ch = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    return Array.from(crypto.getRandomValues(new Uint8Array(n))).map(b => ch[b % ch.length]).join('');
+  }
+
+  async function spChallenge(verifier) {
+    const data = new TextEncoder().encode(verifier);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(hash)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  async function spLogin() {
+    const cid = spClientId();
+    if (!cid) { alert('Paste your Spotify Client ID first.'); return; }
+    const verifier  = spRandomStr(64);
+    const challenge = await spChallenge(verifier);
+    localStorage.setItem('sp_verifier',  verifier);
+    localStorage.setItem('sp_auto_mode', 'spotify');
+    const p = new URLSearchParams({
+      client_id: cid, response_type: 'code',
+      redirect_uri: spRedirectUri(),
+      scope: 'user-read-currently-playing user-read-playback-state',
+      code_challenge_method: 'S256', code_challenge: challenge,
+    });
+    window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+  }
+
+  async function spExchangeCode(code) {
+    const resp = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: spClientId(), grant_type: 'authorization_code',
+        code, redirect_uri: spRedirectUri(),
+        code_verifier: localStorage.getItem('sp_verifier') || '',
+      }),
+    });
+    if (!resp.ok) return false;
+    const d = await resp.json();
+    spToken = d.access_token;
+    localStorage.setItem('sp_token',   spToken);
+    localStorage.setItem('sp_refresh', d.refresh_token || '');
+    localStorage.setItem('sp_expires', Date.now() + (d.expires_in || 3600) * 1000);
+    return true;
+  }
+
+  async function spRefreshToken() {
+    const refresh = localStorage.getItem('sp_refresh');
+    if (!refresh) return;
+    const resp = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: spClientId(), grant_type: 'refresh_token', refresh_token: refresh,
+      }),
+    });
+    if (!resp.ok) return;
+    const d = await resp.json();
+    spToken = d.access_token;
+    localStorage.setItem('sp_token',   spToken);
+    localStorage.setItem('sp_expires', Date.now() + (d.expires_in || 3600) * 1000);
+    if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
+  }
+
+  async function spApiGet(path) {
+    if (!spToken) return null;
+    const exp = parseInt(localStorage.getItem('sp_expires') || '0');
+    if (Date.now() > exp - 60000) await spRefreshToken();
+    try {
+      const r = await fetch('https://api.spotify.com/v1' + path, {
+        headers: { Authorization: 'Bearer ' + spToken },
+      });
+      if (r.status === 204 || !r.ok) return null;
+      return r.json();
+    } catch(e) { return null; }
+  }
+
+  async function spPollPlayback() {
+    if (spPolling) return;
+    spPolling = true;
+    try {
+      const d = await spApiGet('/me/player/currently-playing');
+      if (!d || !d.item || !d.is_playing) { spPolling = false; return; }
+      // Estimate the song position in real time by anchoring to now
+      spSongStart = performance.now() - d.progress_ms;
+      const id = d.item.id;
+      if (id !== spCurrentTrack) {
+        spCurrentTrack = id;
+        spBeatGrid     = null;
+        const analysis = await spApiGet('/audio-analysis/' + id);
+        if (analysis && analysis.beats) spBeatGrid = analysis.beats;
+      }
+    } catch(e) {}
+    spPolling = false;
+  }
+
+  function spUpdateBass(ts) {
+    if (!spBeatGrid || !spBeatGrid.length) return;
+    const songPos = (ts - spSongStart) / 1000;
+    let beat = null;
+    for (let i = spBeatGrid.length - 1; i >= 0; i--) {
+      if (spBeatGrid[i].start <= songPos) { beat = spBeatGrid[i]; break; }
+    }
+    if (!beat) return;
+    const phase = Math.min(1, (songPos - beat.start) / Math.max(0.01, beat.duration));
+    // Sharp attack at beat start, exponential decay — speaker cone feel
+    const raw = Math.pow(Math.max(0, 1 - phase * 1.6), 2) * (beat.confidence || 0.7);
+    bassEnergy    += (raw - bassEnergy)    * (raw > bassEnergy ? 0.65 : 0.10);
+    // Keep gentle ambient energy between beats so globe isn't fully dark
+    midEnergy     = Math.max(midEnergy     * 0.97, 0.06);
+    highEnergy    = Math.max(highEnergy    * 0.97, 0.04);
+    overallEnergy = Math.max(overallEnergy * 0.97, 0.05);
+  }
+
+  // ── Public API ────────────────────────────────────────────────────────────────
+
+  window.setAudioMode = async function(mode) {
+    if (mode === 'mic') {
+      const ok = await enableMic();
+      if (!ok) return false;
+    } else if (mode === 'builtin') {
+      enableBuiltin();
+    } else if (mode === 'spotify') {
+      disableAudio();
+      audioMode = 'spotify';
+      if (spToken) spPollPlayback();
+    } else {
+      disableAudio();
+      localStorage.removeItem('sp_auto_mode');
+    }
+    return true;
+  };
+
+  window.spLogin      = spLogin;
+  window.spIsConnected = () => !!spToken;
+  window.spRedirectUri = spRedirectUri;
+
+  window.spDisconnect = function() {
+    spToken = null;
+    spBeatGrid = null; spCurrentTrack = null;
+    ['sp_token','sp_refresh','sp_expires','sp_verifier','sp_auto_mode'].forEach(k => localStorage.removeItem(k));
+    if (audioMode === 'spotify') disableAudio();
+  };
+
+  // ── Scene init ────────────────────────────────────────────────────────────────
 
   function buildScene() {
     const mode            = MODES[currentMode];
-    const nodeCount       = Math.max(8,  Math.round(44  * (mode.nodeCountMult !== undefined ? mode.nodeCountMult : mode.countMult)));
+    const nodeCount       = Math.max(8,  Math.round(44  * (mode.nodeCountMult   !== undefined ? mode.nodeCountMult   : mode.countMult)));
     const edgeCount       = Math.max(5,  Math.round(50  * mode.countMult));
     const packetCount     = Math.max(3,  Math.round(28  * (mode.packetCountMult !== undefined ? mode.packetCountMult : mode.countMult)));
     const modeMaxParallel = mode.maxParallel !== undefined ? mode.maxParallel : MAX_PARALLEL;
@@ -159,10 +387,8 @@
         if (b === h || used.has(k)) continue;
         const ax = norm3(cross3(nodes[h].pos, nodes[b].pos));
         if (tooParallel(ax, edgeAxes, modeMaxParallel)) continue;
-        used.add(k);
-        edgeAxes.push(ax);
-        const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
-          ? nodes[h].type : nodes[b].type;
+        used.add(k); edgeAxes.push(ax);
+        const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id] ? nodes[h].type : nodes[b].type;
         edges.push({ a: h, b, rgb: dom.rgb });
         got++;
       }
@@ -176,10 +402,8 @@
       if (a === b || used.has(k)) continue;
       const ax = norm3(cross3(nodes[a].pos, nodes[b].pos));
       if (tooParallel(ax, edgeAxes, modeMaxParallel)) continue;
-      edgeAxes.push(ax);
-      used.add(k);
-      const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id]
-        ? nodes[a].type : nodes[b].type;
+      edgeAxes.push(ax); used.add(k);
+      const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id] ? nodes[a].type : nodes[b].type;
       edges.push({ a, b, rgb: dom.rgb });
     }
 
@@ -194,28 +418,42 @@
       if (rawSpeed < SLOW_FLOOR_RAW && (slowCount >= SLOW_CAP || slowEdges.has(edge))) {
         speed = (SLOW_FLOOR_RAW + Math.random() * (0.0032 - SLOW_FLOOR_RAW)) * mode.speedMult;
       } else if (rawSpeed < SLOW_FLOOR_RAW) {
-        slowCount++;
-        slowEdges.add(edge);
+        slowCount++; slowEdges.add(edge);
       }
       return { edge, t: Math.random(), speed };
     });
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
     lastTS = ts;
 
+    // ── Audio tick ──
+    tickAudio();
+    if (audioMode === 'spotify') {
+      spUpdateBass(ts);
+      if (ts - spLastPollTS > SP_POLL_MS && !spPolling) {
+        spLastPollTS = ts;
+        spPollPlayback();
+      }
+    }
+
+    // Audio-driven visual parameters
+    Rdraw = R * (1 + bassEnergy * 0.22);
+    const audioActive    = audioMode !== 'off';
+    const audioSpeedMult = audioActive ? (1 + midEnergy     * 1.0) : 1;
+    const nodeGlowBoost  = audioActive ? (1 + highEnergy    * 0.6) : 1;
+    const edgeAlphaBoost = audioActive ? (1 + overallEnergy * 0.4) : 1;
+
     const mode     = MODES[currentMode];
     const autoSpin = AUTO_SPIN_BASE * mode.speedMult;
 
-    // OverCaffed: erratic per-frame flicker — 20% chance of deep drop, else mild variation
     const flickerMult = mode.flicker
       ? (Math.random() < 0.20 ? 0.15 + Math.random() * 0.25 : 0.65 + Math.random() * 0.35)
       : 1;
 
-    // OverCaffed jolt — whole-globe nervous vibration; guaranteed ≤30s, randomly more frequent
     if (mode.flicker && ts > joltEnd) {
       const timeSince = ts - lastJolt;
       if (timeSince > 30000 || (timeSince > 2000 && Math.random() < 0.0015 * dt / 16.67)) {
@@ -231,7 +469,6 @@
       rotM = mm(mry(velY * dt), rotM);
       const decay = Math.pow(0.97, dt / 16.67);
       velX *= decay;
-      // Fling decays to AUTO_SPIN in whatever direction the user spun the globe
       const spinTarget = velY < 0 ? -autoSpin : autoSpin;
       velY = spinTarget + (velY - spinTarget) * decay;
     }
@@ -247,7 +484,6 @@
       ctx.fill();
     });
 
-    // Apply jolt offset — shifts cx/cy so every proj() call shakes the whole globe
     cx += joltX; cy += joltY;
 
     const SEGS = 72;
@@ -309,7 +545,7 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // ── Data edges ──
+    // ── Edges (alpha boosted by overall audio energy) ──
     const ESEGS = 32;
     edges.forEach(({ a, b, rgb: [er, eg, eb] }) => {
       let prev = null;
@@ -318,11 +554,11 @@
         const rp = proj(rot(sp));
         if (prev) {
           const mz   = (rp[2] + prev[2]) * 0.5;
-          const alph = (mz > 0 ? (0.06 + mz * 0.40) : 0.010) * flickerMult;
+          const alph = (mz > 0 ? (0.06 + mz * 0.40) : 0.010) * flickerMult * edgeAlphaBoost;
           ctx.beginPath();
           ctx.moveTo(prev[0], prev[1]);
           ctx.lineTo(rp[0], rp[1]);
-          ctx.strokeStyle = `rgba(${er},${eg},${eb},${alph})`;
+          ctx.strokeStyle = `rgba(${er},${eg},${eb},${Math.min(alph, 0.98)})`;
           ctx.lineWidth = 0.85;
           ctx.stroke();
         }
@@ -330,14 +566,14 @@
       }
     });
 
-    // ── Nodes ──
+    // ── Nodes (glow boosted by high-frequency audio energy) ──
     nodes.forEach(nd => {
       const rp = proj(rot(nd.pos));
       if (rp[2] < -0.04) return;
       const pulse = 0.5 + 0.5 * Math.sin(ts / nd.pulsePeriod * Math.PI * 2 + nd.pulsePhase);
       const vis   = rp[2] > 0 ? 0.40 + rp[2] * 0.60 : 0;
-      const a     = vis * (0.55 + 0.45 * pulse) * flickerMult;
-      const gr    = R * nd.type.glowScale * (0.018 + 0.010 * pulse);
+      const a     = Math.min(0.98, vis * (0.55 + 0.45 * pulse) * flickerMult * nodeGlowBoost);
+      const gr    = Rdraw * nd.type.glowScale * (0.018 + 0.010 * pulse);
       const [nr, ng, nb] = nd.type.rgb;
       const g     = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], gr);
       g.addColorStop(0,   `rgba(${nr},${ng},${nb},${a * 0.92})`);
@@ -354,15 +590,15 @@
       ctx.fill();
     });
 
-    // ── Packets ──
+    // ── Packets (speed boosted by mid-frequency audio energy) ──
     packets.forEach(p => {
-      p.t = (p.t + p.speed) % 1;
+      p.t = (p.t + p.speed * audioSpeedMult) % 1;
       const edge = edges[p.edge];
       const sp   = slerp(nodes[edge.a].pos, nodes[edge.b].pos, p.t);
       const rp   = proj(rot(sp));
       if (rp[2] < 0) return;
       const a    = (0.45 + rp[2] * 0.55) * flickerMult;
-      const pr   = R * 0.014;
+      const pr   = Rdraw * 0.014;
       const [er, eg, eb] = edge.rgb;
       const g    = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], pr);
       g.addColorStop(0,   `rgba(255,255,255,${a})`);
@@ -374,7 +610,7 @@
       ctx.fill();
     });
 
-    // ── Dream flashes (REM) — random bright nodal bursts representing dreams ──
+    // ── Dream flashes (REM) ──
     if (mode.dreamFlashes && nodes.length > 0) {
       if (Math.random() < 0.005 * dt / 16.67) {
         const nd = nodes[Math.floor(Math.random() * nodes.length)];
@@ -387,7 +623,7 @@
         if (rp[2] > 0) {
           const t      = f.age / f.life;
           const bright = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
-          const gr     = R * 0.14 * bright;
+          const gr     = Rdraw * 0.14 * bright;
           const g      = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], gr);
           g.addColorStop(0,    `rgba(255,255,255,${bright * 0.95})`);
           g.addColorStop(0.25, `rgba(220,190,255,${bright * 0.55})`);
@@ -401,23 +637,22 @@
       });
     }
 
-    // ── Rim ──
-    const rim = ctx.createRadialGradient(cx, cy, R * 0.88, cx, cy, R * 1.18);
+    // ── Rim (scales with bass expansion) ──
+    const rim = ctx.createRadialGradient(cx, cy, Rdraw * 0.88, cx, cy, Rdraw * 1.18);
     rim.addColorStop(0,    `rgba(0, 170, 255, ${0.12 * flickerMult})`);
     rim.addColorStop(0.55, `rgba(0, 120, 220, ${0.05 * flickerMult})`);
     rim.addColorStop(1,    'rgba(0,  70, 180, 0)');
     ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.18, 0, Math.PI * 2);
+    ctx.arc(cx, cy, Rdraw * 1.18, 0, Math.PI * 2);
     ctx.fillStyle = rim;
     ctx.fill();
 
-    // Restore cx/cy after jolt shift
     cx -= joltX; cy -= joltY;
 
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // ── Drag input ────────────────────────────────────────────────────────────────
 
   function onDown(x, y) {
     isDrag = true;
@@ -441,45 +676,34 @@
     lastPX = x; lastPY = y; lastPT = now;
   }
 
-  function onUp() {
-    isDrag = false;
-    canvas.style.cursor = 'grab';
-  }
+  function onUp() { isDrag = false; canvas.style.cursor = 'grab'; }
 
-  // Mouse — move/up on window so fast drags don't escape the canvas
   canvas.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
   window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
   window.addEventListener('mouseup',   onUp);
 
-  // Touch
-  canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    onDown(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: false });
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    onMove(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: false });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ───────────────────────────────────────────────────────────────────────────────
+  // ── Mode switching ────────────────────────────────────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
     currentMode = mode;
     buildScene();
-    // Snap velY to new auto-spin magnitude in current direction
     const autoSpin = AUTO_SPIN_BASE * MODES[mode].speedMult;
     if (!isDrag) velY = velY < 0 ? -autoSpin : autoSpin;
   };
 
-  // ── Resize ───────────────────────────────────────────────────────────────────────────────────
+  // ── Resize ────────────────────────────────────────────────────────────────────
 
   function resize() {
     W  = canvas.width  = window.innerWidth;
     H  = canvas.height = window.innerHeight;
     R  = Math.min(W, H) * 0.38;
+    Rdraw = R;
     cx = W * 0.5;
     cy = H * 0.5;
     dragSens = Math.PI / (2 * R);
@@ -492,12 +716,29 @@
   let rsTimer;
   window.addEventListener('resize', () => {
     clearTimeout(rsTimer);
-    rsTimer = setTimeout(() => {
-      cancelAnimationFrame(rafId);
-      resize();
-      rafId = requestAnimationFrame(render);
-    }, 120);
+    rsTimer = setTimeout(() => { cancelAnimationFrame(rafId); resize(); rafId = requestAnimationFrame(render); }, 120);
   });
 
   rafId = requestAnimationFrame(render);
+
+  // ── OAuth callback check (Spotify redirect back to this page) ─────────────────
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _spCode    = _urlParams.get('code');
+  if (_spCode && localStorage.getItem('sp_auto_mode') === 'spotify') {
+    history.replaceState({}, '', window.location.pathname);
+    spExchangeCode(_spCode).then(ok => {
+      if (!ok) return;
+      audioMode = 'spotify';
+      spPollPlayback();
+      if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
+      if (typeof updateSpotifyUI  === 'function') updateSpotifyUI();
+    });
+  } else if (localStorage.getItem('sp_auto_mode') === 'spotify' && spToken) {
+    // Restore Spotify mode on normal page reload
+    audioMode = 'spotify';
+    spPollPlayback();
+    if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
+    if (typeof updateSpotifyUI  === 'function') updateSpotifyUI();
+  }
+
 })();
