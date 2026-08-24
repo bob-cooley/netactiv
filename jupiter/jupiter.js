@@ -193,7 +193,7 @@
   let spPolling      = false;
   const SP_POLL_MS   = 3000;
 
-  const spClientId   = () => localStorage.getItem('sp_client_id') || '';
+  const spClientId   = () => localStorage.getItem('sp_client_id') || '3f49c126b1c44c4a9d8a4b7330eff27e';
   const spRedirectUri = () => window.location.origin + window.location.pathname;
 
   function spRandomStr(n) {

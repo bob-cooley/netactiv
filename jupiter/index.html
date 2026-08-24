@@ -535,10 +535,6 @@
         document.querySelectorAll('.setting-btn[data-audio]').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         if (btn.dataset.audio === 'spotify') {
-          if (!localStorage.getItem('sp_client_id')) {
-            document.getElementById('sp-client-id').focus();
-            return;
-          }
           if (window.setAudioMode) await window.setAudioMode('spotify');
           if (window.spLogin && !window.spIsConnected()) window.spLogin();
         } else {
@@ -557,6 +553,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=25"></script>
+  <script src="jupiter.js?v=26"></script>
 </body>
 </html>
