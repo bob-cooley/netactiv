@@ -263,6 +263,43 @@
       color: #ffffff;
     }
 
+    .client-id-wrap {
+      margin-top: 6px;
+    }
+
+    .client-id-input {
+      display: block;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: 'Inter', Helvetica Neue, sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.70);
+      letter-spacing: 0.04em;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .client-id-input::placeholder {
+      color: rgba(255, 255, 255, 0.22);
+    }
+
+    .client-id-input:focus {
+      border-color: rgba(0, 195, 240, 0.40);
+      color: #ffffff;
+    }
+
+    .client-id-label {
+      font-size: 10px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.28);
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
     /* ── Info panel ── */
     .info-section-label {
       font-size: 11px;
@@ -392,6 +429,10 @@
       <button class="setting-btn selected" data-audio="off">Off</button>
       <button class="setting-btn" data-audio="mic">Microphone</button>
       <button class="setting-btn" data-audio="spotify">Spotify</button>
+      <div class="client-id-wrap">
+        <div class="client-id-label">Spotify Client ID</div>
+        <input class="client-id-input" id="sp-client-id" type="text" placeholder="Paste your Client ID here" autocomplete="off" spellcheck="false">
+      </div>
     </div>
   </div>
 
@@ -479,6 +520,15 @@
       });
     });
 
+    // Spotify Client ID field — load saved value, save on change
+    const spClientIdInput = document.getElementById('sp-client-id');
+    spClientIdInput.value = localStorage.getItem('sp_client_id') || '';
+    spClientIdInput.addEventListener('input', () => {
+      const v = spClientIdInput.value.trim();
+      if (v) localStorage.setItem('sp_client_id', v);
+      else localStorage.removeItem('sp_client_id');
+    });
+
     // Audio input buttons
     document.querySelectorAll('.setting-btn[data-audio]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -499,6 +549,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=23"></script>
+  <script src="jupiter.js?v=24"></script>
 </body>
 </html>
