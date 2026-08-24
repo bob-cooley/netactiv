@@ -210,7 +210,7 @@
 
   async function spLogin() {
     const cid = spClientId();
-    if (!cid) { alert('Paste your Spotify Client ID first.'); return; }
+    if (!cid) return;
     const verifier  = spRandomStr(64);
     const challenge = await spChallenge(verifier);
     localStorage.setItem('sp_verifier',  verifier);
