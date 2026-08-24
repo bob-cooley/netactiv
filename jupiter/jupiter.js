@@ -225,27 +225,33 @@
     return Array.from(crypto.getRandomValues(new Uint8Array(n))).map(b => ch[b % ch.length]).join('');
   }
 
-  async function spChallenge(verifier) {
-    const data = new TextEncoder().encode(verifier);
+  // Pre-compute PKCE so spLogin() can navigate synchronously on user click.
+  // Browsers block navigation that happens after an async gap from the gesture.
+  let _pkceVerifier  = '';
+  let _pkceChallenge = '';
+
+  async function _refreshPKCE() {
+    _pkceVerifier = spRandomStr(64);
+    const data = new TextEncoder().encode(_pkceVerifier);
     const hash = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(hash)))
+    _pkceChallenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
+  _refreshPKCE();
 
-  async function spLogin() {
+  function spLogin() {
     const cid = spClientId();
-    if (!cid) return;
-    const verifier  = spRandomStr(64);
-    const challenge = await spChallenge(verifier);
-    localStorage.setItem('sp_verifier',  verifier);
+    if (!cid || !_pkceChallenge) return;
+    localStorage.setItem('sp_verifier',  _pkceVerifier);
     localStorage.setItem('sp_auto_mode', 'spotify');
     const p = new URLSearchParams({
       client_id: cid, response_type: 'code',
       redirect_uri: spRedirectUri(),
       scope: 'streaming user-read-currently-playing user-read-playback-state user-modify-playback-state',
-      code_challenge_method: 'S256', code_challenge: challenge,
+      code_challenge_method: 'S256', code_challenge: _pkceChallenge,
     });
     window.location.href = 'https://accounts.spotify.com/authorize?' + p;
+    _refreshPKCE(); // prep for next login attempt
   }
 
   async function spExchangeCode(code) {
