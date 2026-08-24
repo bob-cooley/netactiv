@@ -300,6 +300,24 @@
       margin-bottom: 4px;
     }
 
+    .now-playing {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(0, 195, 240, 0.06);
+      border: 1px solid rgba(0, 195, 240, 0.18);
+      border-radius: 6px;
+    }
+
+    .now-playing-track {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(0, 195, 240, 0.85);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* ── Info panel ── */
     .info-section-label {
       font-size: 11px;
@@ -433,6 +451,9 @@
         <div class="client-id-label">Spotify Client ID</div>
         <input class="client-id-input" id="sp-client-id" type="text" placeholder="Paste your Client ID here" autocomplete="off" spellcheck="false">
       </div>
+      <div class="now-playing" id="sp-now-playing" style="display:none">
+        <div class="now-playing-track" id="sp-track-name"></div>
+      </div>
     </div>
   </div>
 
@@ -461,7 +482,7 @@
   </div>
 
   <script>
-    // ── Controls ───────────────────────────────────────────────────────────────────────────────────────────────
+    // ── Controls ─────────────────────────────────────────────────────────────────────────────────────────────────
     const panels = {
       sound:    document.getElementById('panel-sound'),
       settings: document.getElementById('panel-settings'),
@@ -529,15 +550,34 @@
       else localStorage.removeItem('sp_client_id');
     });
 
+    function syncAudioButtons(mode) {
+      document.querySelectorAll('.setting-btn[data-audio]').forEach(b => {
+        b.classList.toggle('selected', b.dataset.audio === mode);
+      });
+    }
+
+    async function updateSpotifyUI() {
+      if (!window.spGetCurrentTrack) return;
+      const track = await window.spGetCurrentTrack();
+      const el = document.getElementById('sp-now-playing');
+      if (track) {
+        document.getElementById('sp-track-name').textContent = track.name + ' — ' + track.artist;
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
     // Audio input buttons
     document.querySelectorAll('.setting-btn[data-audio]').forEach(btn => {
       btn.addEventListener('click', async () => {
         document.querySelectorAll('.setting-btn[data-audio]').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         if (btn.dataset.audio === 'spotify') {
-          if (window.setAudioMode) await window.setAudioMode('spotify');
-          if (window.spLogin && !window.spIsConnected()) window.spLogin();
+          const ok = window.setAudioMode ? await window.setAudioMode('spotify') : false;
+          if (!ok && window.spLogin && !window.spIsConnected()) window.spLogin();
         } else {
+          document.getElementById('sp-now-playing').style.display = 'none';
           if (window.setAudioMode) await window.setAudioMode(btn.dataset.audio);
         }
       });
@@ -553,6 +593,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=26"></script>
+  <script src="jupiter.js?v=27"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
   const ctx    = canvas.getContext('2d');
 
   let W, H, cx, cy, R, rafId;
-  let Rdraw = 0;   // per-frame effective radius: R × bass scale
+  let Rdraw = 0;
   let stars = [];
   let nodes = [], edges = [], packets = [];
   let dreamFlashes = [];
@@ -24,7 +24,6 @@
   };
   let currentMode = 'chill';
 
-  // ── Node types ───────────────────────────────────────────────────────────────
   const NODE_TYPES = [
     { id: 'relay',    rgb: [0,   255, 218], weight: 0.42, glowScale: 1.00, pulseSpeed: 1.00 },
     { id: 'hub',      rgb: [255, 178,   0], weight: 0.15, glowScale: 1.70, pulseSpeed: 0.55 },
@@ -41,7 +40,6 @@
     return NODE_TYPES[0];
   }
 
-  // ── 3×3 matrix math ──────────────────────────────────────────────────────────
   const mm = (A, B) => [
     A[0]*B[0]+A[1]*B[3]+A[2]*B[6], A[0]*B[1]+A[1]*B[4]+A[2]*B[7], A[0]*B[2]+A[1]*B[5]+A[2]*B[8],
     A[3]*B[0]+A[4]*B[3]+A[5]*B[6], A[3]*B[1]+A[4]*B[4]+A[5]*B[7], A[3]*B[2]+A[4]*B[5]+A[5]*B[8],
@@ -52,19 +50,13 @@
   const mry = a => { const c=Math.cos(a),s=Math.sin(a); return [c,0,s, 0,1,0,-s,0,c]; };
   const mrz = a => { const c=Math.cos(a),s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; };
 
-  // ── Orientation state ─────────────────────────────────────────────────────────
   let rotM   = mrz(TILT);
   let velX   = 0, velY = AUTO_SPIN_BASE;
   let isDrag = false;
   let lastPX = 0, lastPY = 0, lastPT = 0, lastTS = 0;
 
-  // ── 3-D helpers ───────────────────────────────────────────────────────────────
   function cross3(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
-
-  function norm3(v) {
-    const l = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
-    return l < 1e-9 ? v : [v[0]/l, v[1]/l, v[2]/l];
-  }
+  function norm3(v) { const l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); return l<1e-9?v:[v[0]/l,v[1]/l,v[2]/l]; }
 
   const MAX_PARALLEL = 2;
   const PARALLEL_DOT = 0.82;
@@ -77,31 +69,67 @@
     return false;
   }
 
-  function xyz(lat, lon) { const c = Math.cos(lat); return [c * Math.cos(lon), Math.sin(lat), c * Math.sin(lon)]; }
+  function xyz(lat, lon) { const c=Math.cos(lat); return [c*Math.cos(lon), Math.sin(lat), c*Math.sin(lon)]; }
   function rot(p) { return mv(rotM, p); }
-
-  // proj uses Rdraw so bass expansion applies everywhere
   function proj(p) { return [cx + Rdraw * p[0], cy - Rdraw * p[1], p[2]]; }
 
   function slerp(a, b, t) {
-    let dot = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    let dot = a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
     dot = Math.max(-1, Math.min(1, dot));
     const omega = Math.acos(dot);
     if (omega < 1e-6) return [a[0], a[1], a[2]];
     const s = Math.sin(omega);
-    return [a[0]*Math.sin((1-t)*omega)/s + b[0]*Math.sin(t*omega)/s,
-            a[1]*Math.sin((1-t)*omega)/s + b[1]*Math.sin(t*omega)/s,
-            a[2]*Math.sin((1-t)*omega)/s + b[2]*Math.sin(t*omega)/s];
+    return [a[0]*Math.sin((1-t)*omega)/s+b[0]*Math.sin(t*omega)/s,
+            a[1]*Math.sin((1-t)*omega)/s+b[1]*Math.sin(t*omega)/s,
+            a[2]*Math.sin((1-t)*omega)/s+b[2]*Math.sin(t*omega)/s];
   }
 
-  // ── Audio engine ──────────────────────────────────────────────────────────────
+  // ── AudioContext patch — intercepts Spotify SDK's audio graph ─────────────────
+  // Runs before SDK loads; when _reactivACReady is true the next new AudioContext
+  // gets an analyser inserted before its destination.
+  (function patchAC() {
+    try {
+      const Native = window.AudioContext || window.webkitAudioContext;
+      if (!Native || window._reactivACPatched) return;
+      window._reactivACPatched = true;
 
-  let audioCtx    = null;
-  let analyser    = null;
+      class PatchedAC extends Native {
+        constructor(opts) {
+          super(opts);
+          if (!window._reactivACReady || window._reactivSDKAnalyser) return;
+          window._reactivACReady = false;
+          try {
+            const an = this.createAnalyser();
+            an.fftSize               = 2048;
+            an.smoothingTimeConstant = 0.80;
+            an.connect(this.destination);
+            window._reactivSDKAnalyser = an;
+
+            const dest  = this.destination;
+            const origCG = this.createGain.bind(this);
+            this.createGain = () => {
+              const g  = origCG();
+              const oc = g.connect.bind(g);
+              g.connect = (node, ...rest) => oc(node === dest ? an : node, ...rest);
+              return g;
+            };
+          } catch(e) {}
+        }
+      }
+
+      window.AudioContext = window.webkitAudioContext = PatchedAC;
+    } catch(e) {}
+  })();
+
+  // ── Audio engine ────────────────────────────────────────────
+
+  let audioCtx    = null;   // our own context (mic / builtin)
+  let ownAnalyser = null;   // analyser from our context
+  let analyser    = null;   // currently active analyser
   let freqData    = null;
   let micStream   = null;
   let builtinNode = null;
-  let audioMode   = 'off';   // 'off' | 'mic' | 'builtin' | 'spotify'
+  let audioMode   = 'off';  // 'off' | 'mic' | 'builtin' | 'spotify'
 
   let bassEnergy    = 0;
   let midEnergy     = 0;
@@ -110,24 +138,21 @@
 
   function ensureAudioCtx() {
     if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser  = audioCtx.createAnalyser();
-    analyser.fftSize               = 2048;
-    analyser.smoothingTimeConstant = 0.80;
-    freqData  = new Uint8Array(analyser.frequencyBinCount);
+    audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
+    ownAnalyser = audioCtx.createAnalyser();
+    ownAnalyser.fftSize               = 2048;
+    ownAnalyser.smoothingTimeConstant = 0.80;
+    freqData    = new Uint8Array(ownAnalyser.frequencyBinCount);
   }
 
   function disableAudio() {
-    if (micStream) {
-      micStream.getTracks().forEach(t => t.stop());
-      micStream = null;
-    }
-    if (builtinNode && analyser) {
-      try { builtinNode.disconnect(analyser); } catch(e) {}
-    }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (builtinNode && ownAnalyser) { try { builtinNode.disconnect(ownAnalyser); } catch(e) {} }
+    if (spPlayer) { try { spPlayer.disconnect(); } catch(e) {} spPlayer = null; spDeviceId = null; }
     const el = document.getElementById('audio-builtin');
     if (el) el.pause();
     bassEnergy = midEnergy = highEnergy = overallEnergy = 0;
+    analyser  = null;
     audioMode = 'off';
   }
 
@@ -137,7 +162,8 @@
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       const src = audioCtx.createMediaStreamSource(micStream);
-      src.connect(analyser);
+      src.connect(ownAnalyser);
+      analyser  = ownAnalyser;
       audioMode = 'mic';
       return true;
     } catch(e) {
@@ -154,46 +180,44 @@
     if (!el) return;
     if (!builtinNode) {
       builtinNode = audioCtx.createMediaElementSource(el);
-      builtinNode.connect(audioCtx.destination);  // so we hear it
+      builtinNode.connect(audioCtx.destination);
     }
-    builtinNode.connect(analyser);
+    builtinNode.connect(ownAnalyser);
     if (audioCtx.state === 'suspended') audioCtx.resume();
     el.loop = true;
     el.play().catch(() => {});
+    analyser  = ownAnalyser;
     audioMode = 'builtin';
   }
 
-  // FFT_SIZE=2048 @ ~44100Hz → bin ≈ 21.5Hz
-  // Bass bins 1-10  (~21–215Hz), Mid 10-80  (~215–1720Hz), High 80-200 (~1720–4300Hz)
   function tickAudio() {
-    if (!analyser || !freqData || (audioMode !== 'mic' && audioMode !== 'builtin')) return;
+    if (!analyser || !freqData || audioMode === 'off') return;
     analyser.getByteFrequencyData(freqData);
     const avg = (lo, hi) => {
       let s = 0; for (let i = lo; i < hi; i++) s += freqData[i];
       return s / ((hi - lo) * 255);
     };
-    const rB = avg(1, 10);
-    const rM = avg(10, 80);
-    const rH = avg(80, 200);
-    const rO = avg(0, 200);
-    // Fast attack, slow decay — gives punchy feel on beats
+    const rB = avg(1, 10), rM = avg(10, 80), rH = avg(80, 200), rO = avg(0, 200);
     bassEnergy    += (rB - bassEnergy)    * (rB > bassEnergy    ? 0.55 : 0.12);
     midEnergy     += (rM - midEnergy)     * (rM > midEnergy     ? 0.40 : 0.12);
     highEnergy    += (rH - highEnergy)    * (rH > highEnergy    ? 0.40 : 0.12);
     overallEnergy += (rO - overallEnergy) * 0.20;
   }
 
-  // ── Spotify ───────────────────────────────────────────────────────────────────
+  // ── Spotify Web Playback SDK ───────────────────────────────────────────
 
-  let spToken        = localStorage.getItem('sp_token')   || null;
-  let spBeatGrid     = null;
-  let spCurrentTrack = null;
-  let spSongStart    = 0;
-  let spLastPollTS   = 0;
-  let spPolling      = false;
-  const SP_POLL_MS   = 3000;
+  // Bump SP_SCOPE_VER whenever OAuth scopes change — forces re-auth.
+  const SP_SCOPE_VER = '2';
+  if (localStorage.getItem('sp_scope_ver') !== SP_SCOPE_VER) {
+    ['sp_token','sp_refresh','sp_expires','sp_verifier','sp_auto_mode'].forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('sp_scope_ver', SP_SCOPE_VER);
+  }
 
-  const spClientId   = () => localStorage.getItem('sp_client_id') || '3f49c126b1c44c4a9d8a4b7330eff27e';
+  let spToken    = localStorage.getItem('sp_token') || null;
+  let spPlayer   = null;
+  let spDeviceId = null;
+
+  const spClientId    = () => localStorage.getItem('sp_client_id') || '3f49c126b1c44c4a9d8a4b7330eff27e';
   const spRedirectUri = () => window.location.origin + window.location.pathname;
 
   function spRandomStr(n) {
@@ -218,7 +242,7 @@
     const p = new URLSearchParams({
       client_id: cid, response_type: 'code',
       redirect_uri: spRedirectUri(),
-      scope: 'user-read-currently-playing user-read-playback-state',
+      scope: 'streaming user-read-currently-playing user-read-playback-state user-modify-playback-state',
       code_challenge_method: 'S256', code_challenge: challenge,
     });
     window.location.href = 'https://accounts.spotify.com/authorize?' + p;
@@ -261,87 +285,120 @@
     if (d.refresh_token) localStorage.setItem('sp_refresh', d.refresh_token);
   }
 
-  async function spApiGet(path) {
-    if (!spToken) return null;
+  function loadSpotifySDK() {
+    return new Promise((resolve, reject) => {
+      if (window.Spotify) { resolve(); return; }
+      const t = setTimeout(() => reject(new Error('SDK timeout')), 12000);
+      window.onSpotifyWebPlaybackSDKReady = () => { clearTimeout(t); resolve(); };
+      const s = document.createElement('script');
+      s.src = 'https://sdk.scdn.co/spotify-player.js';
+      s.onerror = () => { clearTimeout(t); reject(new Error('SDK load failed')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function initSpotifyPlayer() {
+    if (!spToken) return false;
+
     const exp = parseInt(localStorage.getItem('sp_expires') || '0');
     if (Date.now() > exp - 60000) await spRefreshToken();
-    try {
-      const r = await fetch('https://api.spotify.com/v1' + path, {
-        headers: { Authorization: 'Bearer ' + spToken },
+    if (!spToken) return false;
+
+    if (spPlayer) { try { spPlayer.disconnect(); } catch(e) {} spPlayer = null; }
+
+    // Tell our AudioContext patch to intercept the next context the SDK creates
+    window._reactivSDKAnalyser = null;
+    window._reactivACReady     = true;
+
+    try { await loadSpotifySDK(); } catch(e) { window._reactivACReady = false; return false; }
+
+    return new Promise(resolve => {
+      spPlayer = new window.Spotify.Player({
+        name: 'reactiv',
+        getOAuthToken: cb => cb(spToken),
+        volume: 0.8,
       });
-      if (r.status === 204 || !r.ok) return null;
-      return r.json();
-    } catch(e) { return null; }
+
+      spPlayer.addListener('ready', async ({ device_id }) => {
+        spDeviceId = device_id;
+        try {
+          await fetch('https://api.spotify.com/v1/me/player', {
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + spToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_ids: [device_id], play: true }),
+          });
+        } catch(e) {}
+
+        const sdkAn = window._reactivSDKAnalyser;
+        if (sdkAn) {
+          analyser  = sdkAn;
+          freqData  = new Uint8Array(sdkAn.frequencyBinCount);
+          audioMode = 'spotify';
+        }
+
+        if (typeof updateSpotifyUI === 'function') updateSpotifyUI();
+        resolve(true);
+      });
+
+      spPlayer.addListener('authentication_error', () => {
+        spToken = null;
+        ['sp_token','sp_refresh','sp_expires'].forEach(k => localStorage.removeItem(k));
+        spLogin();
+        resolve(false);
+      });
+
+      spPlayer.addListener('account_error',        () => resolve(false));
+      spPlayer.addListener('not_ready',            () => { spDeviceId = null; });
+      spPlayer.addListener('player_state_changed', () => {
+        if (typeof updateSpotifyUI === 'function') updateSpotifyUI();
+      });
+
+      spPlayer.connect().then(ok => { if (!ok) resolve(false); });
+    });
   }
 
-  async function spPollPlayback() {
-    if (spPolling) return;
-    spPolling = true;
-    try {
-      const d = await spApiGet('/me/player/currently-playing');
-      if (!d || !d.item || !d.is_playing) { spPolling = false; return; }
-      // Estimate the song position in real time by anchoring to now
-      spSongStart = performance.now() - d.progress_ms;
-      const id = d.item.id;
-      if (id !== spCurrentTrack) {
-        spCurrentTrack = id;
-        spBeatGrid     = null;
-        const analysis = await spApiGet('/audio-analysis/' + id);
-        if (analysis && analysis.beats) spBeatGrid = analysis.beats;
-      }
-    } catch(e) {}
-    spPolling = false;
-  }
-
-  function spUpdateBass(ts) {
-    if (!spBeatGrid || !spBeatGrid.length) return;
-    const songPos = (ts - spSongStart) / 1000;
-    let beat = null;
-    for (let i = spBeatGrid.length - 1; i >= 0; i--) {
-      if (spBeatGrid[i].start <= songPos) { beat = spBeatGrid[i]; break; }
-    }
-    if (!beat) return;
-    const phase = Math.min(1, (songPos - beat.start) / Math.max(0.01, beat.duration));
-    // Sharp attack at beat start, exponential decay — speaker cone feel
-    const raw = Math.pow(Math.max(0, 1 - phase * 1.6), 2) * (beat.confidence || 0.7);
-    bassEnergy    += (raw - bassEnergy)    * (raw > bassEnergy ? 0.65 : 0.10);
-    // Keep gentle ambient energy between beats so globe isn't fully dark
-    midEnergy     = Math.max(midEnergy     * 0.97, 0.06);
-    highEnergy    = Math.max(highEnergy    * 0.97, 0.04);
-    overallEnergy = Math.max(overallEnergy * 0.97, 0.05);
-  }
-
-  // ── Public API ────────────────────────────────────────────────────────────────
+  // ── Public API ────────────────────────────────────────────
 
   window.setAudioMode = async function(mode) {
     if (mode === 'mic') {
-      const ok = await enableMic();
-      if (!ok) return false;
+      return await enableMic();
     } else if (mode === 'builtin') {
       enableBuiltin();
+      return true;
     } else if (mode === 'spotify') {
+      if (!spToken) return false;
       disableAudio();
-      audioMode = 'spotify';
-      if (spToken) spPollPlayback();
+      return await initSpotifyPlayer();
     } else {
       disableAudio();
       localStorage.removeItem('sp_auto_mode');
+      return true;
     }
-    return true;
   };
 
-  window.spLogin      = spLogin;
+  window.spLogin       = spLogin;
   window.spIsConnected = () => !!spToken;
   window.spRedirectUri = spRedirectUri;
 
+  window.spGetCurrentTrack = async function() {
+    if (!spPlayer) return null;
+    try {
+      const state = await spPlayer.getCurrentState();
+      if (!state) return null;
+      const t = state.track_window.current_track;
+      return { name: t.name, artist: t.artists.map(a => a.name).join(', ') };
+    } catch(e) { return null; }
+  };
+
   window.spDisconnect = function() {
     spToken = null;
-    spBeatGrid = null; spCurrentTrack = null;
+    if (spPlayer) { try { spPlayer.disconnect(); } catch(e) {} spPlayer = null; }
+    spDeviceId = null;
     ['sp_token','sp_refresh','sp_expires','sp_verifier','sp_auto_mode'].forEach(k => localStorage.removeItem(k));
     if (audioMode === 'spotify') disableAudio();
   };
 
-  // ── Scene init ────────────────────────────────────────────────────────────────
+  // ── Scene init ────────────────────────────────────────────
 
   function buildScene() {
     const mode            = MODES[currentMode];
@@ -424,23 +481,14 @@
     });
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
     lastTS = ts;
 
-    // ── Audio tick ──
     tickAudio();
-    if (audioMode === 'spotify') {
-      spUpdateBass(ts);
-      if (ts - spLastPollTS > SP_POLL_MS && !spPolling) {
-        spLastPollTS = ts;
-        spPollPlayback();
-      }
-    }
 
-    // Audio-driven visual parameters
     Rdraw = R * (1 + bassEnergy * 0.22);
     const audioActive    = audioMode !== 'off';
     const audioSpeedMult = audioActive ? (1 + midEnergy     * 1.0) : 1;
@@ -488,7 +536,6 @@
 
     const SEGS = 72;
 
-    // ── Grid — back face ──
     ctx.beginPath();
     for (let i = 0; i <= LAT_LINES; i++) {
       const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
@@ -510,7 +557,6 @@
     ctx.lineWidth = 0.4;
     ctx.stroke();
 
-    // ── Grid — front face ──
     ctx.beginPath();
     for (let i = 0; i <= LAT_LINES; i++) {
       const lat = -Math.PI / 2 + (i / LAT_LINES) * Math.PI;
@@ -532,7 +578,6 @@
     ctx.lineWidth = 0.65;
     ctx.stroke();
 
-    // ── Axis indicator ──
     const nPole = proj(rot([0, 1, 0]));
     const sPole = proj(rot([0, -1, 0]));
     const axX   = 1.18;
@@ -545,7 +590,6 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // ── Edges (alpha boosted by overall audio energy) ──
     const ESEGS = 32;
     edges.forEach(({ a, b, rgb: [er, eg, eb] }) => {
       let prev = null;
@@ -566,7 +610,6 @@
       }
     });
 
-    // ── Nodes (glow boosted by high-frequency audio energy) ──
     nodes.forEach(nd => {
       const rp = proj(rot(nd.pos));
       if (rp[2] < -0.04) return;
@@ -590,17 +633,16 @@
       ctx.fill();
     });
 
-    // ── Packets (speed boosted by mid-frequency audio energy) ──
     packets.forEach(p => {
       p.t = (p.t + p.speed * audioSpeedMult) % 1;
       const edge = edges[p.edge];
       const sp   = slerp(nodes[edge.a].pos, nodes[edge.b].pos, p.t);
       const rp   = proj(rot(sp));
       if (rp[2] < 0) return;
-      const a    = (0.45 + rp[2] * 0.55) * flickerMult;
-      const pr   = Rdraw * 0.014;
+      const a  = (0.45 + rp[2] * 0.55) * flickerMult;
+      const pr = Rdraw * 0.014;
       const [er, eg, eb] = edge.rgb;
-      const g    = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], pr);
+      const g  = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], pr);
       g.addColorStop(0,   `rgba(255,255,255,${a})`);
       g.addColorStop(0.4, `rgba(${er},${eg},${eb},${a * 0.70})`);
       g.addColorStop(1,   `rgba(${er},${eg},${eb},0)`);
@@ -610,7 +652,6 @@
       ctx.fill();
     });
 
-    // ── Dream flashes (REM) ──
     if (mode.dreamFlashes && nodes.length > 0) {
       if (Math.random() < 0.005 * dt / 16.67) {
         const nd = nodes[Math.floor(Math.random() * nodes.length)];
@@ -637,7 +678,6 @@
       });
     }
 
-    // ── Rim (scales with bass expansion) ──
     const rim = ctx.createRadialGradient(cx, cy, Rdraw * 0.88, cx, cy, Rdraw * 1.18);
     rim.addColorStop(0,    `rgba(0, 170, 255, ${0.12 * flickerMult})`);
     rim.addColorStop(0.55, `rgba(0, 120, 220, ${0.05 * flickerMult})`);
@@ -652,13 +692,11 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ────────────────────────────────────────────────────────────────
+  // ── Drag input ────────────────────────────────────────────
 
   function onDown(x, y) {
-    isDrag = true;
-    lastPX = x; lastPY = y;
-    lastPT = performance.now();
-    velX = 0; velY = 0;
+    isDrag = true; lastPX = x; lastPY = y;
+    lastPT = performance.now(); velX = 0; velY = 0;
     canvas.style.cursor = 'grabbing';
   }
 
@@ -666,13 +704,11 @@
     if (!isDrag) return;
     const now = performance.now();
     const dt  = Math.max(1, now - lastPT);
-    const dx  = x - lastPX;
-    const dy  = y - lastPY;
-    rotM = mm(mrx(dy * dragSens), rotM);
-    rotM = mm(mry(dx * dragSens), rotM);
+    rotM = mm(mrx((y - lastPY) * dragSens), rotM);
+    rotM = mm(mry((x - lastPX) * dragSens), rotM);
     const alpha = 0.65;
-    velX = alpha * (dy * dragSens / dt) + (1 - alpha) * velX;
-    velY = alpha * (dx * dragSens / dt) + (1 - alpha) * velY;
+    velX = alpha * ((y - lastPY) * dragSens / dt) + (1 - alpha) * velX;
+    velY = alpha * ((x - lastPX) * dragSens / dt) + (1 - alpha) * velY;
     lastPX = x; lastPY = y; lastPT = now;
   }
 
@@ -681,13 +717,12 @@
   canvas.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
   window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
   window.addEventListener('mouseup',   onUp);
-
   canvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ────────────────────────────────────────────────────────────
+  // ── Mode switching ──────────────────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
@@ -697,15 +732,14 @@
     if (!isDrag) velY = velY < 0 ? -autoSpin : autoSpin;
   };
 
-  // ── Resize ────────────────────────────────────────────────────────────────────
+  // ── Resize ────────────────────────────────────────────
 
   function resize() {
-    W  = canvas.width  = window.innerWidth;
-    H  = canvas.height = window.innerHeight;
-    R  = Math.min(W, H) * 0.38;
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    R = Math.min(W, H) * 0.38;
     Rdraw = R;
-    cx = W * 0.5;
-    cy = H * 0.5;
+    cx = W * 0.5; cy = H * 0.5;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'grab';
   }
@@ -721,24 +755,20 @@
 
   rafId = requestAnimationFrame(render);
 
-  // ── OAuth callback check (Spotify redirect back to this page) ─────────────────
+  // ── OAuth callback ──────────────────────────────────────────
   const _urlParams = new URLSearchParams(window.location.search);
   const _spCode    = _urlParams.get('code');
   if (_spCode && localStorage.getItem('sp_auto_mode') === 'spotify') {
     history.replaceState({}, '', window.location.pathname);
-    spExchangeCode(_spCode).then(ok => {
+    spExchangeCode(_spCode).then(async ok => {
       if (!ok) return;
-      audioMode = 'spotify';
-      spPollPlayback();
       if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
-      if (typeof updateSpotifyUI  === 'function') updateSpotifyUI();
+      await initSpotifyPlayer();
     });
   } else if (localStorage.getItem('sp_auto_mode') === 'spotify' && spToken) {
-    // Restore Spotify mode on normal page reload
-    audioMode = 'spotify';
-    spPollPlayback();
-    if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
-    if (typeof updateSpotifyUI  === 'function') updateSpotifyUI();
+    initSpotifyPlayer().then(() => {
+      if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
+    });
   }
 
 })();
