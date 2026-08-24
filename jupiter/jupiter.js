@@ -342,12 +342,16 @@
 
       spPlayer.addListener('authentication_error', () => {
         spToken = null;
-        ['sp_token','sp_refresh','sp_expires'].forEach(k => localStorage.removeItem(k));
-        spLogin();
+        ['sp_token','sp_refresh','sp_expires','sp_auto_mode'].forEach(k => localStorage.removeItem(k));
+        if (typeof syncAudioButtons === 'function') syncAudioButtons('off');
         resolve(false);
       });
 
-      spPlayer.addListener('account_error',        () => resolve(false));
+      spPlayer.addListener('account_error', () => {
+        localStorage.removeItem('sp_auto_mode');
+        if (typeof syncAudioButtons === 'function') syncAudioButtons('off');
+        resolve(false);
+      });
       spPlayer.addListener('not_ready',            () => { spDeviceId = null; });
       spPlayer.addListener('player_state_changed', () => {
         if (typeof updateSpotifyUI === 'function') updateSpotifyUI();
@@ -766,8 +770,8 @@
       await initSpotifyPlayer();
     });
   } else if (localStorage.getItem('sp_auto_mode') === 'spotify' && spToken) {
-    initSpotifyPlayer().then(() => {
-      if (typeof syncAudioButtons === 'function') syncAudioButtons('spotify');
+    initSpotifyPlayer().then(ok => {
+      if (typeof syncAudioButtons === 'function') syncAudioButtons(ok ? 'spotify' : 'off');
     });
   }
 
