@@ -386,6 +386,13 @@
       <button class="setting-btn" data-mode="addied">Addied</button>
       <button class="setting-btn" data-mode="overcaffed">OverCaffed</button>
     </div>
+
+    <div class="setting-section">
+      <div class="setting-section-label">Audio Input</div>
+      <button class="setting-btn selected" data-audio="off">Off</button>
+      <button class="setting-btn" data-audio="mic">Microphone</button>
+      <button class="setting-btn" data-audio="spotify">Spotify</button>
+    </div>
   </div>
 
   <!-- Info panel -->
@@ -472,6 +479,16 @@
       });
     });
 
+    // Audio input buttons
+    document.querySelectorAll('.setting-btn[data-audio]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll('.setting-btn[data-audio]').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        if (window.setAudioMode) await window.setAudioMode(btn.dataset.audio);
+        if (btn.dataset.audio === 'spotify' && window.spLogin && !window.spIsConnected()) window.spLogin();
+      });
+    });
+
     // Close panels when clicking canvas
     document.getElementById('neuralvex-canvas').addEventListener('mousedown', () => {
       Object.keys(panels).forEach(k => {
@@ -482,6 +499,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=22"></script>
+  <script src="jupiter.js?v=23"></script>
 </body>
 </html>
