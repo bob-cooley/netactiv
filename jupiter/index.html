@@ -448,9 +448,10 @@
       <button class="setting-btn" data-audio="mic">Microphone</button>
       <button class="setting-btn" data-audio="spotify">Spotify</button>
       <div class="client-id-wrap">
-        <div class="client-id-label">Spotify Client ID</div>
+        <div class="client-id-label">Spotify Client ID (required)</div>
         <input class="client-id-input" id="sp-client-id" type="text" placeholder="Paste your Client ID here" autocomplete="off" spellcheck="false">
       </div>
+      <div id="sp-error" style="display:none; font-size:11px; color:rgba(255,100,100,0.90); margin-top:6px; line-height:1.4;"></div>
       <div class="now-playing" id="sp-now-playing" style="display:none">
         <div class="now-playing-track" id="sp-track-name"></div>
       </div>
@@ -482,7 +483,7 @@
   </div>
 
   <script>
-    // ── Controls ─────────────────────────────────────────────────────────────────────────────────────────────────
+    // ── Controls ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     const panels = {
       sound:    document.getElementById('panel-sound'),
       settings: document.getElementById('panel-settings'),
@@ -550,10 +551,23 @@
       else localStorage.removeItem('sp_client_id');
     });
 
+    window.showSpError = function(msg) {
+      const el = document.getElementById('sp-error');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.display = msg ? '' : 'none';
+    };
+    // Show any error cached from a previous page load
+    (function() {
+      const d = localStorage.getItem('sp_debug');
+      if (d) window.showSpError(d);
+    })();
+
     function syncAudioButtons(mode) {
       document.querySelectorAll('.setting-btn[data-audio]').forEach(b => {
         b.classList.toggle('selected', b.dataset.audio === mode);
       });
+      if (mode !== 'spotify') window.showSpError('');
     }
 
     async function updateSpotifyUI() {
@@ -593,6 +607,6 @@
     });
   </script>
 
-  <script src="jupiter.js?v=29"></script>
+  <script src="jupiter.js?v=30"></script>
 </body>
 </html>

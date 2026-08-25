@@ -121,7 +121,7 @@
     } catch(e) {}
   })();
 
-  // ── Audio engine ────────────────────────────────────────────
+  // ── Audio engine ────────────────────────────
 
   let audioCtx    = null;   // our own context (mic / builtin)
   let ownAnalyser = null;   // analyser from our context
@@ -204,7 +204,7 @@
     overallEnergy += (rO - overallEnergy) * 0.20;
   }
 
-  // ── Spotify Web Playback SDK ───────────────────────────────────────────
+  // ── Spotify Web Playback SDK ─────────────────────────────────────
 
   // Bump SP_SCOPE_VER whenever OAuth scopes change — forces re-auth.
   const SP_SCOPE_VER = '2';
@@ -217,8 +217,11 @@
   let spPlayer   = null;
   let spDeviceId = null;
 
-  const spClientId    = () => localStorage.getItem('sp_client_id') || '3f49c126b1c44c4a9d8a4b7330eff27e';
-  const spRedirectUri = () => window.location.origin + window.location.pathname;
+  const spClientId    = () => localStorage.getItem('sp_client_id') || '';
+  const spRedirectUri = () => {
+    const p = window.location.pathname;
+    return window.location.origin + (p.endsWith('/') ? p : p + '/');
+  };
 
   function spRandomStr(n) {
     const ch = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -241,7 +244,8 @@
 
   function spLogin() {
     const cid = spClientId();
-    if (!cid || !_pkceChallenge) return;
+    if (!cid) { if (typeof window.showSpError === 'function') window.showSpError('Enter your Spotify Client ID first.'); return; }
+    if (!_pkceChallenge) return;
     localStorage.setItem('sp_verifier',  _pkceVerifier);
     localStorage.setItem('sp_auto_mode', 'spotify');
     const p = new URLSearchParams({
@@ -255,21 +259,32 @@
   }
 
   async function spExchangeCode(code) {
+    const uri = spRedirectUri();
+    console.log('[reactiv] exchange: redirect_uri=' + uri + ' client_id=' + spClientId());
     const resp = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: spClientId(), grant_type: 'authorization_code',
-        code, redirect_uri: spRedirectUri(),
+        code, redirect_uri: uri,
         code_verifier: localStorage.getItem('sp_verifier') || '',
       }),
     });
-    if (!resp.ok) return false;
+    if (!resp.ok) {
+      let errBody = '';
+      try { errBody = await resp.text(); } catch(e) {}
+      console.error('[reactiv] exchange failed', resp.status, errBody);
+      localStorage.setItem('sp_debug', 'Exchange ' + resp.status + ': ' + errBody);
+      if (typeof window.showSpError === 'function') window.showSpError('Auth failed (' + resp.status + '). Check Client ID and redirect URI.');
+      return false;
+    }
     const d = await resp.json();
     spToken = d.access_token;
     localStorage.setItem('sp_token',   spToken);
     localStorage.setItem('sp_refresh', d.refresh_token || '');
     localStorage.setItem('sp_expires', Date.now() + (d.expires_in || 3600) * 1000);
+    localStorage.removeItem('sp_debug');
+    console.log('[reactiv] exchange ok');
     return true;
   }
 
@@ -326,6 +341,7 @@
       });
 
       spPlayer.addListener('ready', async ({ device_id }) => {
+        console.log('[reactiv] player ready, device_id=' + device_id);
         spDeviceId = device_id;
         try {
           await fetch('https://api.spotify.com/v1/me/player', {
@@ -346,16 +362,22 @@
         resolve(true);
       });
 
-      spPlayer.addListener('authentication_error', () => {
+      spPlayer.addListener('authentication_error', ({ message }) => {
+        console.error('[reactiv] authentication_error:', message);
+        localStorage.setItem('sp_debug', 'SDK auth error: ' + (message || '?'));
         spToken = null;
         ['sp_token','sp_refresh','sp_expires','sp_auto_mode'].forEach(k => localStorage.removeItem(k));
         if (typeof syncAudioButtons === 'function') syncAudioButtons('off');
+        if (typeof window.showSpError === 'function') window.showSpError('Spotify auth error: ' + (message || 'token rejected') + '. Check Client ID.');
         resolve(false);
       });
 
-      spPlayer.addListener('account_error', () => {
+      spPlayer.addListener('account_error', ({ message }) => {
+        console.error('[reactiv] account_error:', message);
+        localStorage.setItem('sp_debug', 'SDK account error: ' + (message || '?'));
         localStorage.removeItem('sp_auto_mode');
         if (typeof syncAudioButtons === 'function') syncAudioButtons('off');
+        if (typeof window.showSpError === 'function') window.showSpError('Spotify account error: ' + (message || 'check Premium'));
         resolve(false);
       });
       spPlayer.addListener('not_ready',            () => { spDeviceId = null; });
@@ -363,11 +385,11 @@
         if (typeof updateSpotifyUI === 'function') updateSpotifyUI();
       });
 
-      spPlayer.connect().then(ok => { if (!ok) resolve(false); });
+      spPlayer.connect().then(ok => { console.log('[reactiv] connect()=', ok); if (!ok) resolve(false); });
     });
   }
 
-  // ── Public API ────────────────────────────────────────────
+  // ── Public API ────────────────────────────────
 
   window.setAudioMode = async function(mode) {
     if (mode === 'mic') {
@@ -408,7 +430,7 @@
     if (audioMode === 'spotify') disableAudio();
   };
 
-  // ── Scene init ────────────────────────────────────────────
+  // ── Scene init ────────────────────────────────
 
   function buildScene() {
     const mode            = MODES[currentMode];
@@ -491,7 +513,7 @@
     });
   }
 
-  // ── Render ────────────────────────────────────────────
+  // ── Render ────────────────────────────────
 
   function render(ts) {
     const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
@@ -702,7 +724,7 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // ── Drag input ────────────────────────────────────────────
+  // ── Drag input ────────────────────────────────
 
   function onDown(x, y) {
     isDrag = true; lastPX = x; lastPY = y;
@@ -732,7 +754,7 @@
   canvas.addEventListener('touchend',   onUp);
   canvas.addEventListener('touchcancel', onUp);
 
-  // ── Mode switching ──────────────────────────────────────────
+  // ── Mode switching ──────────────────────────────
 
   window.setDisplayMode = function(mode) {
     if (!MODES[mode]) return;
@@ -742,7 +764,7 @@
     if (!isDrag) velY = velY < 0 ? -autoSpin : autoSpin;
   };
 
-  // ── Resize ────────────────────────────────────────────
+  // ── Resize ────────────────────────────────
 
   function resize() {
     W = canvas.width  = window.innerWidth;
@@ -765,7 +787,7 @@
 
   rafId = requestAnimationFrame(render);
 
-  // ── OAuth callback ──────────────────────────────────────────
+  // ── OAuth callback ──────────────────────────────
   const _urlParams = new URLSearchParams(window.location.search);
   const _spCode    = _urlParams.get('code');
   if (_spCode && localStorage.getItem('sp_auto_mode') === 'spotify') {
