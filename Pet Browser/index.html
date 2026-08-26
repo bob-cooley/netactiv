@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#070a12">
+  <title>Neko Pet Browser</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app" aria-label="Neko Pet Browser">
+    <canvas id="pet" aria-label="Animated white Neko cat"></canvas>
+
+    <header class="status-bar">
+      <div>
+        <p class="eyebrow">PET BROWSER</p>
+        <h1>Neko</h1>
+      </div>
+      <button id="fullscreen" class="icon-button" type="button" aria-label="Enter fullscreen" title="Fullscreen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5m13 5h5v-5"/></svg>
+      </button>
+    </header>
+
+    <section class="controls" aria-label="Animation controls">
+      <div class="actions" role="group" aria-label="Choose Neko animation">
+        <button type="button" data-action="idle" class="active">Sit</button>
+        <button type="button" data-action="walk">Walk</button>
+        <button type="button" data-action="run">Run</button>
+        <button type="button" data-action="sleep">Sleep</button>
+        <button type="button" data-action="curious">Curious</button>
+        <button type="button" data-action="happy">Happy</button>
+        <button type="button" data-action="play">Play</button>
+        <button type="button" data-action="pounce">Pounce</button>
+        <button type="button" data-action="look">Look</button>
+      </div>
+      <div class="size-control">
+        <label for="size">Size</label>
+        <input id="size" type="range" min="55" max="100" value="92" aria-label="Pet size">
+      </div>
+    </section>
+
+    <p id="loading" class="loading" role="status">Waking Neko…</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
