@@ -76,7 +76,7 @@ h1 {
   width: 192px;
   height: 208px;
   flex: 0 0 192px;
-  background-image: url("assets/neko.png");
+  background-image: url("assets/neko.png?v=2");
   background-repeat: no-repeat;
   background-size: 1536px 2288px;
   background-position: 0 0;
