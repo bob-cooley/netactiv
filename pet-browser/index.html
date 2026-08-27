@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neko</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header>
+      <p class="eyebrow">FULL-SIZE ANIMATED COMPANION</p>
+      <h1>Neko</h1>
+      <p class="subtitle">Native 192 × 208 rendering. No scaling.</p>
+    </header>
+
+    <section class="stage-panel" aria-label="Animated Neko preview">
+      <div class="stage">
+        <div id="pet" class="pet" role="img" aria-label="Animated white Neko cat"></div>
+      </div>
+      <div class="status-line">
+        <span id="stateName">Idle</span>
+        <span id="frameCount">Frame 1 of 6</span>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Animation controls">
+      <div id="stateButtons" class="state-buttons"></div>
+
+      <div class="playback-row">
+        <button id="playPause" class="primary-button" type="button">Pause</button>
+        <label>
+          Speed
+          <input id="speed" type="range" min="70" max="360" step="10" value="150">
+        </label>
+        <label class="check-label">
+          <input id="autoTour" type="checkbox">
+          Tour all states
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
