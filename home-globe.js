@@ -11,6 +11,7 @@
   let isDrag = false, lastPX = 0, lastPY = 0, lastPT = 0;
   let velX = 0, velY = 0;
   let rotM, dragSens = 0.005;
+  let revertTimer = null;
 
   const TILT           = 0.44;
   const LAT_LINES      = 9;
@@ -23,8 +24,8 @@
   const PARALLEL_DOT   = 0.82;
 
   const MODES = {
-    chill:  { speedMult: 1.0, countMult: 2.0, nodeCountMult: undefined, packetCountMult: undefined, maxParallel: 2,  flicker: false },
-    addied: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0,       packetCountMult: 2.0,        maxParallel: 10, flicker: true  },
+    chill:      { speedMult: 1.0, countMult: 2.0, nodeCountMult: undefined, packetCountMult: undefined, maxParallel: 2,  flicker: false, joltAmp: 36,  joltGap: 2000 },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0,       packetCountMult: 2.0,        maxParallel: 10, flicker: true,  joltAmp: 58,  joltGap: 600  },
   };
 
   const NODE_TYPES = [
@@ -161,17 +162,17 @@
     let joltX = 0, joltY = 0;
 
     if (mode.flicker) {
-      flickerMult = Math.random() < 0.20 ? 0.15 + Math.random() * 0.25 : 0.65 + Math.random() * 0.35;
+      flickerMult = Math.random() < 0.30 ? 0.04 + Math.random() * 0.18 : 0.45 + Math.random() * 0.55;
       if (ts > joltEnd) {
         const timeSince = ts - lastJolt;
-        if (timeSince > 30000 || (timeSince > 2000 && Math.random() < 0.0015 * dt / 16.67)) {
-          joltEnd = ts + 150 + Math.random() * 250;
+        if (timeSince > 30000 || (timeSince > mode.joltGap && Math.random() < 0.003 * dt / 16.67)) {
+          joltEnd = ts + 120 + Math.random() * 220;
           lastJolt = ts;
         }
       }
       if (ts < joltEnd) {
-        joltX = (Math.random() - 0.5) * 36;
-        joltY = (Math.random() - 0.5) * 36;
+        joltX = (Math.random() - 0.5) * mode.joltAmp;
+        joltY = (Math.random() - 0.5) * mode.joltAmp;
       }
     }
 
@@ -342,14 +343,22 @@
     }
   }
 
-  // Click → addied mode
+  // Click → overcaffed for 1 second, then snap back to chill
   canvas.addEventListener('click', () => {
-    if (currentMode === 'addied') return;
-    currentMode = 'addied';
+    clearTimeout(revertTimer);
+    currentMode = 'overcaffed';
+    joltEnd = 0; lastJolt = 0;
     buildScene();
-    velY = AUTO_SPIN_BASE * MODES.addied.speedMult;
+    velY = AUTO_SPIN_BASE * MODES.overcaffed.speedMult;
     const gt = document.getElementById('glitch-text');
     if (gt) gt.classList.add('active');
+
+    revertTimer = setTimeout(() => {
+      currentMode = 'chill';
+      buildScene();
+      velY = AUTO_SPIN_BASE * MODES.chill.speedMult;
+      if (gt) gt.classList.remove('active');
+    }, 1000);
   });
 
   // Mouse drag
