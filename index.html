@@ -24,7 +24,6 @@
       display: block;
     }
 
-    /* Outer wrapper — centers everything, logo sits above the frame */
     .page {
       position: relative;
       z-index: 1;
@@ -43,10 +42,91 @@
       display: block;
     }
 
-    /* The framed content area — starts below the logo */
-    .content-frame {
-      border: 1px solid rgba(180, 180, 180, 0.35);
-      padding: 40px;
+    .globe-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    #home-globe {
+      display: block;
+      width: 100%;
+    }
+
+    /* Glitch text overlay — left side of globe area */
+    #glitch-text {
+      position: absolute;
+      top: 50%;
+      left: 4%;
+      width: 42%;
+      transform: translateY(-50%);
+      font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: clamp(10px, 1.1vw, 14px);
+      letter-spacing: 0.22em;
+      color: rgba(0, 215, 255, 0.88);
+      text-transform: uppercase;
+      line-height: 1.7;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #glitch-text.active {
+      animation: gt-appear 0.12s ease forwards, gt-flicker 2.8s 0.12s infinite;
+    }
+
+    #glitch-text::before,
+    #glitch-text::after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #glitch-text.active::before {
+      color: rgba(255, 20, 70, 0.82);
+      animation: gt-ghost-a 2.8s 0.12s infinite;
+    }
+
+    #glitch-text.active::after {
+      color: rgba(0, 255, 160, 0.70);
+      animation: gt-ghost-b 2.8s 0.12s infinite;
+    }
+
+    @keyframes gt-appear {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes gt-flicker {
+      0%, 100%  { opacity: 1;   transform: translateY(-50%) skewX(0deg) translateX(0); }
+      6%        { opacity: 1;   transform: translateY(-50%) skewX(-1.8deg) translateX(-2px); }
+      7%        { opacity: 0.4; transform: translateY(-50%) skewX(1.2deg) translateX(3px); }
+      8%        { opacity: 1;   transform: translateY(-50%) skewX(0deg) translateX(0); }
+      38%       { opacity: 1;   transform: translateY(-50%) translateX(0); }
+      39%       { opacity: 0.5; transform: translateY(-50%) translateX(-5px) skewX(-2deg); }
+      40%       { opacity: 1;   transform: translateY(-50%) translateX(0) skewX(0); }
+      71%       { opacity: 1;   transform: translateY(-50%) skewX(0); }
+      72%       { opacity: 0.2; transform: translateY(-50%) translateX(6px) skewX(1.5deg); }
+      73%       { opacity: 1;   transform: translateY(-50%) skewX(0); }
+    }
+
+    @keyframes gt-ghost-a {
+      0%,  5%, 9%, 37%, 41%, 70%, 74%, 100% { opacity: 0; transform: translateX(0); }
+      6%  { opacity: 0.75; transform: translateX(-7px); clip-path: inset(15% 0 55% 0); }
+      7%  { opacity: 0.55; transform: translateX(4px);  clip-path: inset(65% 0 5%  0); }
+      39% { opacity: 0.85; transform: translateX(-9px); clip-path: inset(0%  0 45% 0); }
+      72% { opacity: 0.65; transform: translateX(7px);  clip-path: inset(35% 0 25% 0); }
+    }
+
+    @keyframes gt-ghost-b {
+      0%,  5%, 9%, 37%, 41%, 70%, 74%, 100% { opacity: 0; transform: translateX(0); }
+      6%  { opacity: 0.60; transform: translateX(6px);  clip-path: inset(50% 0 15% 0); }
+      7%  { opacity: 0.45; transform: translateX(-3px); clip-path: inset(10% 0 65% 0); }
+      39% { opacity: 0.70; transform: translateX(8px);  clip-path: inset(45% 0 5%  0); }
+      72% { opacity: 0.55; transform: translateX(-6px); clip-path: inset(20% 0 55% 0); }
     }
 
     footer {
@@ -54,8 +134,8 @@
       font-size: 13px;
       color: #666666;
       letter-spacing: 0.03em;
-      text-align: center;
-      padding: 10px 0 24px;
+      text-align: left;
+      padding: 0 0 24px;
     }
   </style>
 </head>
@@ -65,15 +145,30 @@
     <div class="logo">
       <img src="art/na-logo-long.svg" alt="netActiv">
     </div>
-    <div class="content-frame">
-
-      <!-- placeholder space -->
-      <br><br><br><br><br><br><br><br><br><br>
-      <br><br><br><br><br><br><br>
-
+    <div class="globe-wrap">
+      <canvas id="home-globe"></canvas>
+      <div id="glitch-text" data-text="transmission arrival pending">transmission arrival pending</div>
     </div>
-    <footer>&copy; 2026 netActiv</footer>
+    <footer id="site-footer">&copy; 2026 netActiv</footer>
   </div>
+
+  <script>
+    // Measure the old grey box height and set canvas to 150% of it.
+    // The box had padding:40px + 17 <br> tags — recreate it hidden to get exact px.
+    (function () {
+      var ref = document.createElement('div');
+      ref.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;' +
+        'left:0;top:0;padding:40px;font-size:16px;line-height:1.5;';
+      ref.innerHTML = new Array(18).join('<br>'); // 17 <br> tags
+      document.body.appendChild(ref);
+      var frameH = ref.getBoundingClientRect().height;
+      document.body.removeChild(ref);
+      var canvas = document.getElementById('home-globe');
+      canvas.style.height = Math.round(frameH * 1.575) + 'px';
+    })();
+  </script>
+
   <script src="neural-bg.js"></script>
+  <script src="home-globe.js"></script>
 </body>
 </html>
