@@ -30,3 +30,4 @@ jobs:
             **/.git*/**
             **/.DS_Store
             .github/**
+            menagerie-data/**

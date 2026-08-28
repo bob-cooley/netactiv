@@ -1,0 +1,11 @@
+[
+  {
+    "slug": "neko",
+    "name": "Neko",
+    "sprite": "assets/neko.png?v=2",
+    "format": "png",
+    "spriteVersion": 2,
+    "preview": { "row": 0, "frames": 6 },
+    "added": "2026-08-27"
+  }
+]

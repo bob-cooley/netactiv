@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Menagerie</title>
+  <meta name="description" content="A small collection of animated ChatGPT pets.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="The Menagerie home">
+      <span class="eyebrow">ANIMATED COMPANIONS</span>
+      <span class="brand-name">The Menagerie</span>
+    </a>
+    <a class="header-button" href="upload.php">Upload Pet</a>
+  </header>
+
+  <main class="gallery-shell">
+    <section class="gallery-intro">
+      <h1>Pets</h1>
+      <p>Choose a companion to view its complete animation profile.</p>
+    </section>
+
+    <section id="petGallery" class="pet-gallery" aria-live="polite"></section>
+    <p id="galleryStatus" class="empty-message">Loading the menagerie…</p>
+  </main>
+
+  <script src="gallery.js"></script>
+</body>
+</html>
