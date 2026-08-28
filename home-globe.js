@@ -25,8 +25,12 @@
 
   const MODES = {
     chill:      { speedMult: 1.0, countMult: 2.0, nodeCountMult: undefined, packetCountMult: undefined, maxParallel: 2,  flicker: false, joltAmp: 36,  joltGap: 2000 },
-    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0,       packetCountMult: 2.0,        maxParallel: 10, flicker: true,  joltAmp: 58,  joltGap: 600  },
+    overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0,       packetCountMult: 2.0,        maxParallel: 10, flicker: true,  joltAmp: 95,  joltGap: 280  },
   };
+
+  const ORIG_TEXT = 'transmission arrival pending';
+  const GCHARS    = '░▒▓█#@!$%&?~<>[]{}0123456789\/|';
+  let letterTimer = null;
 
   const NODE_TYPES = [
     { id: 'relay',    rgb: [0,   255, 218], weight: 0.42, glowScale: 1.00, pulseSpeed: 1.00 },
@@ -165,8 +169,8 @@
       flickerMult = Math.random() < 0.30 ? 0.04 + Math.random() * 0.18 : 0.45 + Math.random() * 0.55;
       if (ts > joltEnd) {
         const timeSince = ts - lastJolt;
-        if (timeSince > 30000 || (timeSince > mode.joltGap && Math.random() < 0.003 * dt / 16.67)) {
-          joltEnd = ts + 120 + Math.random() * 220;
+        if (timeSince > 30000 || (timeSince > mode.joltGap && Math.random() < 0.007 * dt / 16.67)) {
+          joltEnd = ts + 60 + Math.random() * 120;
           lastJolt = ts;
         }
       }
@@ -335,7 +339,6 @@
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
 
-    // Pull footer flush to globe bottom (cy + R), not canvas bottom
     const footer = document.getElementById('site-footer');
     if (footer) {
       const excess = H - (cy + R);
@@ -343,22 +346,58 @@
     }
   }
 
-  // Click → overcaffed for 1 second, then snap back to chill
-  canvas.addEventListener('click', () => {
+  function startLetterGlitch() {
+    const gt = document.getElementById('glitch-text');
+    if (!gt) return;
+    letterTimer = setInterval(() => {
+      const chars = ORIG_TEXT.split('');
+      const n = 2 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < n; i++) {
+        const p = Math.floor(Math.random() * chars.length);
+        if (chars[p] !== ' ') chars[p] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+      }
+      const s = chars.join('');
+      gt.textContent = s;
+      gt.setAttribute('data-text', s);
+    }, 65);
+  }
+
+  function stopLetterGlitch() {
+    clearInterval(letterTimer);
+    letterTimer = null;
+    const gt = document.getElementById('glitch-text');
+    if (gt) { gt.textContent = ORIG_TEXT; gt.setAttribute('data-text', ORIG_TEXT); }
+  }
+
+  // Click on globe sphere only → overcaffed for 2 seconds, then snap back to chill
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if ((mx - cx) * (mx - cx) + (my - cy) * (my - cy) > R * R) return;
+
     clearTimeout(revertTimer);
     currentMode = 'overcaffed';
     joltEnd = 0; lastJolt = 0;
     buildScene();
     velY = AUTO_SPIN_BASE * MODES.overcaffed.speedMult;
-    const gt = document.getElementById('glitch-text');
+
+    const gt  = document.getElementById('glitch-text');
+    const ov  = document.getElementById('glitch-overlay');
     if (gt) gt.classList.add('active');
+    if (ov) ov.classList.add('active');
+    document.body.classList.add('overcaffed');
+    startLetterGlitch();
 
     revertTimer = setTimeout(() => {
       currentMode = 'chill';
       buildScene();
       velY = AUTO_SPIN_BASE * MODES.chill.speedMult;
       if (gt) gt.classList.remove('active');
-    }, 1000);
+      if (ov) ov.classList.remove('active');
+      document.body.classList.remove('overcaffed');
+      stopLetterGlitch();
+    }, 2000);
   });
 
   // Mouse drag

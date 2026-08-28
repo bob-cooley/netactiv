@@ -24,6 +24,31 @@
       display: block;
     }
 
+    /* Full-screen glitch overlay — above everything, pointer-events:none */
+    #glitch-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      display: none;
+    }
+    #glitch-overlay.active {
+      display: block;
+      animation: ov-tear 0.11s steps(1) infinite;
+    }
+    @keyframes ov-tear {
+      0%   { opacity: 0.75; background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(153,0,0,0.07) 3px, rgba(153,0,0,0.07) 4px); transform: translateX(0); }
+      11%  { opacity: 0.45; background: rgba(0,0,0,0.14);                                                                                                      transform: translateX(-10px); clip-path: inset(0 0 0 0); }
+      22%  { opacity: 0.80; background: repeating-linear-gradient(to bottom, transparent 0, transparent 6px, rgba(0,40,160,0.05) 6px, rgba(0,40,160,0.05) 7px); transform: translateX(7px);  clip-path: inset(28% 0 42% 0); }
+      33%  { opacity: 0;    background: transparent;                                                                                                            transform: translateX(0);    clip-path: inset(0 0 0 0); }
+      44%  { opacity: 0.90; background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(153,0,0,0.10) 2px, rgba(153,0,0,0.10) 3px);  transform: translateX(-14px); clip-path: inset(62% 0 0 0); }
+      55%  { opacity: 0.35; background: rgba(153,0,0,0.04);                                                                                                     transform: translateX(9px); }
+      66%  { opacity: 0.60; background: repeating-linear-gradient(to bottom, transparent 0, transparent 4px, rgba(0,200,255,0.04) 4px, rgba(0,200,255,0.04) 5px); transform: translateX(0); clip-path: inset(0 0 0 0); }
+      77%  { opacity: 0.20; background: rgba(0,0,0,0.10);                                                                                                       transform: translateX(-6px); }
+      88%  { opacity: 0.50; background: rgba(153,0,0,0.03);                                                                                                     transform: translateX(5px); }
+      100% { opacity: 0;    background: transparent;                                                                                                            transform: translateX(0); }
+    }
+
     .page {
       position: relative;
       z-index: 1;
@@ -32,27 +57,26 @@
       padding: 40px 24px 0;
     }
 
-    .logo {
-      padding-bottom: 32px;
+    /* Whole-page shake during overcaffed */
+    body.overcaffed .page {
+      animation: page-shake 0.09s steps(1) infinite;
+    }
+    @keyframes page-shake {
+      0%   { transform: translate(0,    0); }
+      20%  { transform: translate(-5px,  2px); }
+      40%  { transform: translate( 6px, -3px); }
+      60%  { transform: translate(-3px,  4px); }
+      80%  { transform: translate( 5px, -2px); }
+      100% { transform: translate(0,    0); }
     }
 
-    .logo img {
-      width: 426px;
-      max-width: 90vw;
-      display: block;
-    }
+    .logo { padding-bottom: 32px; }
+    .logo img { width: 426px; max-width: 90vw; display: block; }
 
-    .globe-wrap {
-      position: relative;
-      width: 100%;
-    }
+    .globe-wrap { position: relative; width: 100%; }
+    #home-globe { display: block; width: 100%; }
 
-    #home-globe {
-      display: block;
-      width: 100%;
-    }
-
-    /* Glitch text overlay — left side of globe area */
+    /* Glitch text — left side, dark red, letter-corrupted by JS */
     #glitch-text {
       position: absolute;
       top: 50%;
@@ -62,17 +86,15 @@
       font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: clamp(10px, 1.1vw, 14px);
       letter-spacing: 0.22em;
-      color: rgba(0, 215, 255, 0.88);
+      color: #990000;
       text-transform: uppercase;
       line-height: 1.7;
       opacity: 0;
       pointer-events: none;
     }
-
     #glitch-text.active {
-      animation: gt-appear 0.12s ease forwards, gt-flicker 2.8s 0.12s infinite;
+      animation: gt-appear 0.08s ease forwards, gt-flicker 1.6s 0.08s infinite;
     }
-
     #glitch-text::before,
     #glitch-text::after {
       content: attr(data-text);
@@ -84,49 +106,57 @@
       opacity: 0;
       pointer-events: none;
     }
-
     #glitch-text.active::before {
-      color: rgba(255, 20, 70, 0.82);
-      animation: gt-ghost-a 2.8s 0.12s infinite;
+      color: rgba(255, 30, 30, 0.88);
+      animation: gt-ghost-a 1.6s 0.08s infinite;
     }
-
     #glitch-text.active::after {
-      color: rgba(0, 255, 160, 0.70);
-      animation: gt-ghost-b 2.8s 0.12s infinite;
+      color: rgba(0, 220, 180, 0.65);
+      animation: gt-ghost-b 1.6s 0.08s infinite;
     }
 
-    @keyframes gt-appear {
-      from { opacity: 0; }
-      to   { opacity: 1; }
-    }
+    @keyframes gt-appear { from { opacity: 0; } to { opacity: 1; } }
 
     @keyframes gt-flicker {
-      0%, 100%  { opacity: 1;   transform: translateY(-50%) skewX(0deg) translateX(0); }
-      6%        { opacity: 1;   transform: translateY(-50%) skewX(-1.8deg) translateX(-2px); }
-      7%        { opacity: 0.4; transform: translateY(-50%) skewX(1.2deg) translateX(3px); }
-      8%        { opacity: 1;   transform: translateY(-50%) skewX(0deg) translateX(0); }
-      38%       { opacity: 1;   transform: translateY(-50%) translateX(0); }
-      39%       { opacity: 0.5; transform: translateY(-50%) translateX(-5px) skewX(-2deg); }
-      40%       { opacity: 1;   transform: translateY(-50%) translateX(0) skewX(0); }
-      71%       { opacity: 1;   transform: translateY(-50%) skewX(0); }
-      72%       { opacity: 0.2; transform: translateY(-50%) translateX(6px) skewX(1.5deg); }
-      73%       { opacity: 1;   transform: translateY(-50%) skewX(0); }
+      0%,  100% { opacity: 1;    transform: translateY(-50%) skewX(0deg) translateX(0);          }
+      4%         { opacity: 1;    transform: translateY(-50%) skewX(-2.5deg) translateX(-3px);    }
+      5%         { opacity: 0.15; transform: translateY(-50%) skewX(2deg) translateX(5px);        }
+      6%         { opacity: 1;    transform: translateY(-50%) skewX(0) translateX(0);             }
+      18%        { opacity: 1;    transform: translateY(-50%) translateX(0);                       }
+      19%        { opacity: 0.35; transform: translateY(-50%) translateX(-8px) skewX(-3deg);      }
+      20%        { opacity: 0.8;  transform: translateY(-50%) translateX(6px) skewX(1.5deg);      }
+      21%        { opacity: 1;    transform: translateY(-50%) translateX(0) skewX(0);             }
+      47%        { opacity: 1;    transform: translateY(-50%) skewX(0);                            }
+      48%        { opacity: 0.05; transform: translateY(-50%) translateX(10px) skewX(2deg);       }
+      49%        { opacity: 1;    transform: translateY(-50%) skewX(0);                            }
+      68%        { opacity: 1;    transform: translateY(-50%) translateX(0);                       }
+      69%        { opacity: 0.45; transform: translateY(-50%) translateX(-6px) skewX(-1.5deg);    }
+      70%        { opacity: 1;    transform: translateY(-50%) skewX(0);                            }
+      85%        { opacity: 1;    transform: translateY(-50%) skewX(0);                            }
+      86%        { opacity: 0.2;  transform: translateY(-50%) translateX(7px) skewX(2.5deg);      }
+      87%        { opacity: 1;    transform: translateY(-50%) skewX(0);                            }
     }
 
     @keyframes gt-ghost-a {
-      0%,  5%, 9%, 37%, 41%, 70%, 74%, 100% { opacity: 0; transform: translateX(0); }
-      6%  { opacity: 0.75; transform: translateX(-7px); clip-path: inset(15% 0 55% 0); }
-      7%  { opacity: 0.55; transform: translateX(4px);  clip-path: inset(65% 0 5%  0); }
-      39% { opacity: 0.85; transform: translateX(-9px); clip-path: inset(0%  0 45% 0); }
-      72% { opacity: 0.65; transform: translateX(7px);  clip-path: inset(35% 0 25% 0); }
+      0%,  3%, 7%, 17%, 22%, 46%, 50%, 67%, 71%, 84%, 88%, 100% { opacity: 0; transform: translateX(0); }
+      4%  { opacity: 0.85; transform: translateX(-10px); clip-path: inset(10% 0 60% 0); }
+      5%  { opacity: 0.70; transform: translateX(6px);  clip-path: inset(70% 0 0% 0); }
+      19% { opacity: 0.90; transform: translateX(-12px); clip-path: inset(0%  0 50% 0); }
+      20% { opacity: 0.65; transform: translateX(8px);   clip-path: inset(55% 0 10% 0); }
+      48% { opacity: 0.95; transform: translateX(-8px);  clip-path: inset(25% 0 35% 0); }
+      69% { opacity: 0.80; transform: translateX(11px);  clip-path: inset(40% 0 20% 0); }
+      86% { opacity: 0.75; transform: translateX(-9px);  clip-path: inset(5%  0 65% 0); }
     }
 
     @keyframes gt-ghost-b {
-      0%,  5%, 9%, 37%, 41%, 70%, 74%, 100% { opacity: 0; transform: translateX(0); }
-      6%  { opacity: 0.60; transform: translateX(6px);  clip-path: inset(50% 0 15% 0); }
-      7%  { opacity: 0.45; transform: translateX(-3px); clip-path: inset(10% 0 65% 0); }
-      39% { opacity: 0.70; transform: translateX(8px);  clip-path: inset(45% 0 5%  0); }
-      72% { opacity: 0.55; transform: translateX(-6px); clip-path: inset(20% 0 55% 0); }
+      0%,  3%, 7%, 17%, 22%, 46%, 50%, 67%, 71%, 84%, 88%, 100% { opacity: 0; transform: translateX(0); }
+      4%  { opacity: 0.70; transform: translateX(8px);   clip-path: inset(55% 0 10% 0); }
+      5%  { opacity: 0.55; transform: translateX(-4px);  clip-path: inset(5%  0 75% 0); }
+      19% { opacity: 0.75; transform: translateX(10px);  clip-path: inset(50% 0 0%  0); }
+      20% { opacity: 0.60; transform: translateX(-7px);  clip-path: inset(10% 0 60% 0); }
+      48% { opacity: 0.80; transform: translateX(9px);   clip-path: inset(30% 0 40% 0); }
+      69% { opacity: 0.65; transform: translateX(-10px); clip-path: inset(15% 0 55% 0); }
+      86% { opacity: 0.70; transform: translateX(7px);   clip-path: inset(60% 0 5%  0); }
     }
 
     footer {
@@ -141,6 +171,7 @@
 </head>
 <body>
   <canvas id="neural-bg"></canvas>
+  <div id="glitch-overlay"></div>
   <div class="page">
     <div class="logo">
       <img src="art/na-logo-long.svg" alt="netActiv">
@@ -153,13 +184,11 @@
   </div>
 
   <script>
-    // Measure the old grey box height and set canvas to 150% of it.
-    // The box had padding:40px + 17 <br> tags — recreate it hidden to get exact px.
     (function () {
       var ref = document.createElement('div');
       ref.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;' +
         'left:0;top:0;padding:40px;font-size:16px;line-height:1.5;';
-      ref.innerHTML = new Array(18).join('<br>'); // 17 <br> tags
+      ref.innerHTML = new Array(18).join('<br>');
       document.body.appendChild(ref);
       var frameH = ref.getBoundingClientRect().height;
       document.body.removeChild(ref);
