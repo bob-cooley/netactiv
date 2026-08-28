@@ -351,26 +351,29 @@
     if (!gt) return;
     const baseChars = ORIG_TEXT.split('');
     const nonSpace  = baseChars.map((c, i) => c !== ' ' ? i : -1).filter(i => i >= 0);
-    const zaps = new Map(); // index → expiry (performance.now ms)
+    let zapIndex = -1, zapExpiry = 0;
     letterTimer = setInterval(() => {
       const now = performance.now();
-      // Occasionally zap one letter (short-circuit flicker)
-      if (Math.random() < 0.40) {
-        const i = nonSpace[Math.floor(Math.random() * nonSpace.length)];
-        zaps.set(i, now + 50 + Math.random() * 100);
+      // Start a new zap only when none is active — low probability, one at a time
+      if (zapIndex === -1 && Math.random() < 0.08) {
+        zapIndex  = nonSpace[Math.floor(Math.random() * nonSpace.length)];
+        zapExpiry = now + 40 + Math.random() * 60;
       }
-      const display = baseChars.slice();
-      zaps.forEach((expiry, i) => {
-        if (now < expiry) {
-          display[i] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+      if (zapIndex !== -1) {
+        if (now < zapExpiry) {
+          const display = baseChars.slice();
+          display[zapIndex] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+          const s = display.join('');
+          gt.textContent = s;
+          gt.setAttribute('data-text', s);
         } else {
-          zaps.delete(i);
+          // Zap expired — restore clean text
+          zapIndex = -1;
+          gt.textContent = ORIG_TEXT;
+          gt.setAttribute('data-text', ORIG_TEXT);
         }
-      });
-      const s = display.join('');
-      gt.textContent = s;
-      gt.setAttribute('data-text', s);
-    }, 30);
+      }
+    }, 60);
   }
 
   function stopLetterGlitch() {
