@@ -17,7 +17,7 @@
   const AUTO_SPIN_BASE = 2 * Math.PI / SPIN_MS;
 
   const MODES = {
-    chill:      { speedMult: 1.0, countMult: 1.0,                     dreamFlashes: false, flicker: false },
+    chill:      { speedMult: 1.0, countMult: 2.0,                     dreamFlashes: false, flicker: false },
     rem:        { speedMult: 0.4, countMult: 0.3,                     dreamFlashes: true,  flicker: false },
     addied:     { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, packetCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: false },
     overcaffed: { speedMult: 3.0, countMult: 4.0, nodeCountMult: 2.0, packetCountMult: 2.0, maxParallel: 10, dreamFlashes: false, flicker: true  },
