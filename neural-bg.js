@@ -17,7 +17,7 @@
   ];
   let panels = [];
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────────────────
   function build() {
     intersections = [];
     glows         = [];
@@ -83,8 +83,16 @@
     }
   }
 
-  // ── Draw ───────────────────────────────────────────────────────────────────
+  // ── Draw ─────────────────────────────────────────────────────────────────────────────
+  const BG_FPS = 12;
+  const BG_INTERVAL = 1000 / BG_FPS;
+  let lastBgTs = 0;
+
   function draw(ts) {
+    // Throttle to ~12fps — glows breathe over 6-14s, nobody notices lower rate
+    if (ts - lastBgTs < BG_INTERVAL) { rafId = requestAnimationFrame(draw); return; }
+    lastBgTs = ts;
+
     ctx.clearRect(0, 0, W, H);
 
     // Matte black — flat, no gradient drama
@@ -151,7 +159,7 @@
     rafId = requestAnimationFrame(draw);
   }
 
-  // ── Resize ─────────────────────────────────────────────────────────────────
+  // ── Resize ───────────────────────────────────────────────────────────────────────
   let resizeTimer;
   function resize() {
     clearTimeout(resizeTimer);
