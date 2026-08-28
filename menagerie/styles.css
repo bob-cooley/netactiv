@@ -121,6 +121,54 @@ button, input { font: inherit; }
 
 .pet-card-stage,
 .stage,
+.password-control {
+  position: relative;
+}
+
+.password-control .password-input {
+  padding-right: 52px;
+}
+
+.password-visibility {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 8px;
+  color: #aeb5bc;
+  background: transparent;
+  cursor: pointer;
+}
+
+.password-visibility:hover {
+  color: #eaf6ff;
+  background: #252a2f;
+}
+
+.password-visibility:focus-visible {
+  outline: 2px solid #74b8ec;
+  outline-offset: 1px;
+}
+
+.eye-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.eye-slash { display: none; }
+.password-visibility.showing .eye-slash { display: block; }
+
 .drop-zone {
   background:
     linear-gradient(45deg, #17191b 25%, transparent 25%),
