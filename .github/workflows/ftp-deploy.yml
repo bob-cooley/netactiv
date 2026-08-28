@@ -14,7 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upload to FTP
+      - name: Build private Menagerie configuration
+        env:
+          MENAGERIE_ADMIN_PASSWORD: ${{ secrets.MENAGERIE_ADMIN_PASSWORD }}
+        run: |
+          mkdir -p .deploy-private
+          php <<'PHP'
+          <?php
+          $password = getenv('MENAGERIE_ADMIN_PASSWORD');
+          if (!is_string($password) || $password === '') {
+              fwrite(STDERR, "Menagerie owner password is not configured.\n");
+              exit(1);
+          }
+          $hash = hash('sha256', $password);
+          file_put_contents(
+              '.deploy-private/admin-config.php',
+              "<?php\nreturn '" . $hash . "';\n"
+          );
+          PHP
+
+      - name: Upload public site to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -24,10 +43,22 @@ jobs:
           local-dir: ./
           server-dir: public_html/netactiv/
           log-level: verbose
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           exclude: |
             **/.git*
             **/.git*/**
             **/.DS_Store
             .github/**
+            .deploy-private/**
             menagerie-data/**
+
+      - name: Upload private Menagerie configuration
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          port: 21
+          local-dir: ./.deploy-private/
+          server-dir: public_html/netactiv/menagerie-data/
+          log-level: standard
