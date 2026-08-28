@@ -84,7 +84,7 @@
       pointer-events: none;
     }
     #glitch-text.active {
-      animation: gt-appear 0.08s ease forwards, gt-flicker 1.6s 0.08s infinite;
+      animation: gt-appear 0.08s ease forwards, gt-flicker 8s 0.08s infinite;
     }
     #glitch-text::before,
     #glitch-text::after {
@@ -99,11 +99,11 @@
     }
     #glitch-text.active::before {
       color: rgba(255, 30, 30, 0.88);
-      animation: gt-ghost-a 1.6s 0.08s infinite;
+      animation: gt-ghost-a 8s 0.08s infinite;
     }
     #glitch-text.active::after {
       color: rgba(0, 220, 180, 0.65);
-      animation: gt-ghost-b 1.6s 0.08s infinite;
+      animation: gt-ghost-b 8s 0.08s infinite;
     }
 
     @keyframes gt-appear { from { opacity: 0; } to { opacity: 1; } }
