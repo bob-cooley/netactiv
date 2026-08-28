@@ -118,7 +118,7 @@ $csrf = $authenticated ? menagerie_csrf_token() : '';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Upload Pet | The Menagerie</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
   <header class="site-header">
@@ -154,7 +154,16 @@ $csrf = $authenticated ? menagerie_csrf_token() : '';
           <input type="hidden" name="action" value="login">
           <div class="field">
             <label for="password">Owner password</label>
-            <input class="password-input" id="password" name="password" type="password" required autofocus>
+            <div class="password-control">
+              <input class="password-input" id="password" name="password" type="password" required autofocus>
+              <button class="password-visibility" id="togglePassword" type="button" aria-label="Show password" aria-pressed="false">
+                <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.25 12s3.5-6 9.75-6 9.75 6 9.75 6-3.5 6-9.75 6S2.25 12 2.25 12Z"></path>
+                  <circle cx="12" cy="12" r="2.75"></circle>
+                  <path class="eye-slash" d="M4 4 20 20"></path>
+                </svg>
+              </button>
+            </div>
           </div>
           <button class="primary-button" type="submit">Enter</button>
         </form>
@@ -194,6 +203,22 @@ $csrf = $authenticated ? menagerie_csrf_token() : '';
       <?php endif; ?>
     </section>
   </main>
+
+  <?php if (!$authenticated): ?>
+    <script>
+      const passwordInput = document.querySelector('#password');
+      const passwordToggle = document.querySelector('#togglePassword');
+
+      passwordToggle.addEventListener('click', () => {
+        const showing = passwordInput.type === 'text';
+        passwordInput.type = showing ? 'password' : 'text';
+        passwordToggle.classList.toggle('showing', !showing);
+        passwordToggle.setAttribute('aria-pressed', String(!showing));
+        passwordToggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+        passwordInput.focus();
+      });
+    </script>
+  <?php endif; ?>
 
   <?php if ($authenticated): ?>
     <script>
