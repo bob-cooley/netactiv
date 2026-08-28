@@ -349,17 +349,28 @@
   function startLetterGlitch() {
     const gt = document.getElementById('glitch-text');
     if (!gt) return;
+    const baseChars = ORIG_TEXT.split('');
+    const nonSpace  = baseChars.map((c, i) => c !== ' ' ? i : -1).filter(i => i >= 0);
+    const zaps = new Map(); // index → expiry (performance.now ms)
     letterTimer = setInterval(() => {
-      const chars = ORIG_TEXT.split('');
-      const n = 2 + Math.floor(Math.random() * 5);
-      for (let i = 0; i < n; i++) {
-        const p = Math.floor(Math.random() * chars.length);
-        if (chars[p] !== ' ') chars[p] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+      const now = performance.now();
+      // Occasionally zap one letter (short-circuit flicker)
+      if (Math.random() < 0.40) {
+        const i = nonSpace[Math.floor(Math.random() * nonSpace.length)];
+        zaps.set(i, now + 50 + Math.random() * 100);
       }
-      const s = chars.join('');
+      const display = baseChars.slice();
+      zaps.forEach((expiry, i) => {
+        if (now < expiry) {
+          display[i] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+        } else {
+          zaps.delete(i);
+        }
+      });
+      const s = display.join('');
       gt.textContent = s;
       gt.setAttribute('data-text', s);
-    }, 65);
+    }, 30);
   }
 
   function stopLetterGlitch() {
