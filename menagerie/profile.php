@@ -2,12 +2,20 @@
 declare(strict_types=1);
 require __DIR__ . DIRECTORY_SEPARATOR . 'lib.php';
 
+menagerie_start_session();
+
 $slug = isset($_GET['pet']) ? (string) $_GET['pet'] : 'neko';
 if (!preg_match('/^[a-z0-9-]{1,64}$/', $slug)) {
     $slug = '';
 }
-$pet = $slug !== '' ? menagerie_find_pet($slug) : null;
+$resolvedSlug = $slug !== '' ? menagerie_resolve_slug($slug) : '';
+if ($slug !== '' && $resolvedSlug !== $slug) {
+    header('Location: profile.php?pet=' . rawurlencode($resolvedSlug), true, 301);
+    exit;
+}
+$pet = $resolvedSlug !== '' ? menagerie_find_pet($resolvedSlug) : null;
 $found = $pet !== null;
+$authenticated = menagerie_is_authenticated();
 
 if ($pet === null) {
     http_response_code(404);
@@ -37,7 +45,12 @@ $petJson = json_encode(
       <span class="eyebrow">ANIMATED COMPANIONS</span>
       <span class="brand-name">The Menagerie</span>
     </a>
-    <a class="header-button" href="upload.php">Upload Pet</a>
+    <div class="header-actions">
+      <?php if ($found && $authenticated): ?>
+        <a class="header-button" href="edit.php?pet=<?= rawurlencode((string) $pet['slug']) ?>">Edit Pet</a>
+      <?php endif; ?>
+      <a class="header-button" href="upload.php">Upload Pet</a>
+    </div>
   </header>
 
   <main class="profile-shell">

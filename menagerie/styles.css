@@ -65,6 +65,12 @@ button, input { font: inherit; }
   cursor: pointer;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .header-button:hover,
 .primary-button:hover { background: #214967; }
 

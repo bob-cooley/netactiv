@@ -13,6 +13,11 @@ function menagerie_uploaded_catalog_path(): string
     return menagerie_data_dir() . DIRECTORY_SEPARATOR . 'catalog.json';
 }
 
+function menagerie_aliases_path(): string
+{
+    return menagerie_data_dir() . DIRECTORY_SEPARATOR . 'aliases.json';
+}
+
 function menagerie_admin_hash(): string
 {
     $environmentHash = getenv('MENAGERIE_ADMIN_HASH');
@@ -60,6 +65,20 @@ function menagerie_read_json_file(string $path): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function menagerie_write_json_file(string $path, array $data): bool
+{
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $temporary = $path . '.tmp';
+    return $json !== false
+        && file_put_contents($temporary, $json . "\n", LOCK_EX) !== false
+        && rename($temporary, $path);
+}
+
+function menagerie_is_valid_slug(string $slug): bool
+{
+    return (bool) preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug);
+}
+
 function menagerie_catalog(): array
 {
     $base = menagerie_read_json_file(__DIR__ . DIRECTORY_SEPARATOR . 'catalog.json');
@@ -67,8 +86,19 @@ function menagerie_catalog(): array
     $merged = [];
 
     foreach (array_merge($base, $uploaded) as $pet) {
-        if (is_array($pet) && isset($pet['slug'], $pet['name'], $pet['sprite'])) {
-            $merged[(string) $pet['slug']] = $pet;
+        if (!is_array($pet) || !isset($pet['slug'])) {
+            continue;
+        }
+
+        $slug = (string) $pet['slug'];
+        if (!menagerie_is_valid_slug($slug)) {
+            continue;
+        }
+
+        if (!empty($pet['hidden'])) {
+            unset($merged[$slug]);
+        } elseif (isset($pet['name'], $pet['sprite'])) {
+            $merged[$slug] = $pet;
         }
     }
 
@@ -83,6 +113,46 @@ function menagerie_find_pet(string $slug): ?array
         }
     }
     return null;
+}
+
+function menagerie_aliases(): array
+{
+    $aliases = [];
+    foreach (menagerie_read_json_file(menagerie_aliases_path()) as $from => $to) {
+        if (is_string($from) && is_string($to)
+            && menagerie_is_valid_slug($from) && menagerie_is_valid_slug($to) && $from !== $to) {
+            $aliases[$from] = $to;
+        }
+    }
+    return $aliases;
+}
+
+function menagerie_resolve_slug(string $slug): string
+{
+    $aliases = menagerie_aliases();
+    $resolved = $slug;
+    for ($hops = 0; $hops < 8 && isset($aliases[$resolved]); $hops++) {
+        $next = $aliases[$resolved];
+        if ($next === $resolved) {
+            break;
+        }
+        $resolved = $next;
+    }
+    return $resolved;
+}
+
+function menagerie_slug_is_available(string $slug, string $currentSlug): bool
+{
+    if (!menagerie_is_valid_slug($slug)) {
+        return false;
+    }
+    if ($slug === $currentSlug) {
+        return true;
+    }
+    if (isset(menagerie_aliases()[$slug])) {
+        return false;
+    }
+    return menagerie_find_pet($slug) === null;
 }
 
 function menagerie_path_is_within(string $path, string $directory): bool
@@ -162,11 +232,11 @@ function menagerie_slugify(string $name): string
 function menagerie_unique_slug(string $name): string
 {
     $base = menagerie_slugify($name);
-    $used = array_column(menagerie_catalog(), 'slug');
     $candidate = $base;
     $suffix = 2;
 
-    while (in_array($candidate, $used, true) || is_dir(menagerie_data_dir() . "/pets/{$candidate}")) {
+    while (!menagerie_slug_is_available($candidate, '')
+        || is_dir(menagerie_data_dir() . "/pets/{$candidate}")) {
         $candidate = substr($base, 0, 42) . '-' . $suffix;
         $suffix++;
     }
@@ -197,15 +267,77 @@ function menagerie_save_uploaded_pet(array $pet): bool
 
     $catalog = menagerie_read_json_file(menagerie_uploaded_catalog_path());
     $catalog[] = $pet;
-    $json = json_encode($catalog, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    $temp = menagerie_uploaded_catalog_path() . '.tmp';
-    $saved = $json !== false
-        && file_put_contents($temp, $json . "\n", LOCK_EX) !== false
-        && rename($temp, menagerie_uploaded_catalog_path());
+    $saved = menagerie_write_json_file(menagerie_uploaded_catalog_path(), $catalog);
 
     flock($lock, LOCK_UN);
     fclose($lock);
     return $saved;
+}
+
+function menagerie_update_pet(array $currentPet, string $name, string $newSlug): ?array
+{
+    $currentSlug = (string) ($currentPet['slug'] ?? '');
+    if (!menagerie_is_valid_slug($currentSlug) || !menagerie_is_valid_slug($newSlug)
+        || !menagerie_ensure_data_dir()) {
+        return null;
+    }
+
+    $lockPath = menagerie_data_dir() . DIRECTORY_SEPARATOR . 'catalog.lock';
+    $lock = @fopen($lockPath, 'c+');
+    if ($lock === false || !flock($lock, LOCK_EX)) {
+        if (is_resource($lock)) fclose($lock);
+        return null;
+    }
+
+    $livePet = menagerie_find_pet($currentSlug);
+    if ($livePet === null || !menagerie_slug_is_available($newSlug, $currentSlug)) {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+        return null;
+    }
+
+    $baseCatalog = menagerie_read_json_file(__DIR__ . DIRECTORY_SEPARATOR . 'catalog.json');
+    $baseContainsCurrent = false;
+    foreach ($baseCatalog as $pet) {
+        if (is_array($pet) && ($pet['slug'] ?? null) === $currentSlug) {
+            $baseContainsCurrent = true;
+            break;
+        }
+    }
+
+    $updated = $livePet;
+    $updated['name'] = $name;
+    $updated['slug'] = $newSlug;
+
+    $uploaded = menagerie_read_json_file(menagerie_uploaded_catalog_path());
+    $replacementCatalog = [];
+    foreach ($uploaded as $pet) {
+        if (is_array($pet) && ($pet['slug'] ?? null) === $currentSlug) {
+            continue;
+        }
+        $replacementCatalog[] = $pet;
+    }
+    if ($baseContainsCurrent && $newSlug !== $currentSlug) {
+        $replacementCatalog[] = ['slug' => $currentSlug, 'hidden' => true];
+    }
+    $replacementCatalog[] = $updated;
+
+    $aliases = menagerie_aliases();
+    if ($newSlug !== $currentSlug) {
+        foreach ($aliases as $from => $target) {
+            if ($target === $currentSlug) {
+                $aliases[$from] = $newSlug;
+            }
+        }
+        $aliases[$currentSlug] = $newSlug;
+    }
+
+    $saved = menagerie_write_json_file(menagerie_uploaded_catalog_path(), $replacementCatalog)
+        && menagerie_write_json_file(menagerie_aliases_path(), $aliases);
+
+    flock($lock, LOCK_UN);
+    fclose($lock);
+    return $saved ? $updated : null;
 }
 
 function menagerie_start_session(): void

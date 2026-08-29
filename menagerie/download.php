@@ -15,7 +15,13 @@ if (!preg_match('/^[a-z0-9-]{1,64}$/', $slug)) {
     download_error(400, 'Invalid pet.');
 }
 
-$pet = menagerie_find_pet($slug);
+$resolvedSlug = menagerie_resolve_slug($slug);
+if ($resolvedSlug !== $slug) {
+    header('Location: download.php?pet=' . rawurlencode($resolvedSlug), true, 301);
+    exit;
+}
+
+$pet = menagerie_find_pet($resolvedSlug);
 if ($pet === null) {
     download_error(404, 'Pet not found.');
 }
