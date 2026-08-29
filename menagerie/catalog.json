@@ -2,7 +2,7 @@
   {
     "slug": "neko",
     "name": "Neko",
-    "sprite": "assets/neko.png?v=3",
+    "sprite": "assets/neko.png?v=4",
     "format": "png",
     "spriteVersion": 2,
     "preview": { "row": 0, "frames": 6 },
