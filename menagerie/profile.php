@@ -87,7 +87,7 @@ $petJson = json_encode(
           </label>
         </div>
         <div class="download-row">
-          <a class="secondary-button" href="download.php?pet=<?= rawurlencode((string) $pet['slug']) ?>">Download <?= menagerie_escape((string) $pet['name']) ?> Sprite Sheet</a>
+          <a class="secondary-button download-button" href="download.php?pet=<?= rawurlencode((string) $pet['slug']) ?>">Download <?= menagerie_escape((string) $pet['name']) ?> Sprite Sheet</a>
           <p class="download-note">All sprite sheets use the v2 format.</p>
         </div>
       </section>
