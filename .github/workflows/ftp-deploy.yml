@@ -51,6 +51,7 @@ jobs:
             .github/**
             .deploy-private/**
             menagerie-data/**
+            .deploy-cutethulhu/**
 
       - name: Upload private Menagerie configuration
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -61,4 +62,15 @@ jobs:
           port: 21
           local-dir: ./.deploy-private/
           server-dir: public_html/netactiv/menagerie-data/
+          log-level: standard
+
+      - name: Upload CuteThulhu sprite repair
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          port: 21
+          local-dir: ./.deploy-cutethulhu/
+          server-dir: public_html/netactiv/menagerie-data/pets/cutethulhu/
           log-level: standard
