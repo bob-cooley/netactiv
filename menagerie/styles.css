@@ -306,12 +306,12 @@ button, input { font: inherit; }
   border-top: 1px solid #34393e;
 }
 
-.download-button {
-  border-color: #4e8b67;
-  background: #2a6045;
+.secondary-button.download-button {
+  border-color: #68bd8b;
+  background: #1f5f3f;
 }
 
-.download-button:hover { background: #367b56; }
+.secondary-button.download-button:hover { background: #2a7a52; }
 
 .download-note {
   margin: 0 0 0 auto;
