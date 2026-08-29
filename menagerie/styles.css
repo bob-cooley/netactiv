@@ -291,6 +291,12 @@ button, input { font: inherit; }
   gap: 9px;
 }
 
+.download-row {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #34393e;
+}
+
 input[type="range"] { accent-color: #74b8ec; }
 input[type="checkbox"] { width: 17px; height: 17px; accent-color: #74b8ec; }
 

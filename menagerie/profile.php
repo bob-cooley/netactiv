@@ -73,6 +73,9 @@ $petJson = json_encode(
             Tour all states
           </label>
         </div>
+        <div class="download-row">
+          <a class="secondary-button" href="download.php?pet=<?= rawurlencode((string) $pet['slug']) ?>">Download Sprite Sheet</a>
+        </div>
       </section>
     <?php endif; ?>
   </main>

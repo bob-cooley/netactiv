@@ -7,3 +7,7 @@ Each pet profile renders the official v2 animation states at the native
 
 Uploaded assets and metadata are stored in the deployment-preserved sibling
 folder `menagerie-data/`, which is intentionally excluded from FTP cleanup.
+
+Profile pages link to `download.php?pet=<slug>`. The endpoint resolves a known
+catalog entry and only streams image files located inside the application or
+the preserved Menagerie data folder.

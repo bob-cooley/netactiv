@@ -85,6 +85,71 @@ function menagerie_find_pet(string $slug): ?array
     return null;
 }
 
+function menagerie_path_is_within(string $path, string $directory): bool
+{
+    $root = realpath($directory);
+    if ($root === false) {
+        return false;
+    }
+
+    return $path === $root || str_starts_with($path, $root . DIRECTORY_SEPARATOR);
+}
+
+function menagerie_resolve_pet_sprite(array $pet): ?array
+{
+    $sprite = isset($pet['sprite']) ? (string) $pet['sprite'] : '';
+    $path = explode('?', $sprite, 2)[0];
+
+    if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\')) {
+        return null;
+    }
+
+    if (str_starts_with($path, '/menagerie-data/')) {
+        $candidate = dirname(__DIR__) . $path;
+        $approvedDirectory = menagerie_data_dir();
+    } elseif (!str_starts_with($path, '/')) {
+        $candidate = __DIR__ . DIRECTORY_SEPARATOR . $path;
+        $approvedDirectory = __DIR__;
+    } else {
+        return null;
+    }
+
+    $resolved = realpath($candidate);
+    if ($resolved === false || !is_file($resolved) || !is_readable($resolved)
+        || !menagerie_path_is_within($resolved, $approvedDirectory)) {
+        return null;
+    }
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($resolved);
+    $formats = [
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($formats[$mime])) {
+        return null;
+    }
+
+    return [
+        'path' => $resolved,
+        'mime' => $mime,
+        'extension' => $formats[$mime],
+    ];
+}
+
+function menagerie_download_filename(array $pet, string $extension): string
+{
+    $name = isset($pet['name']) ? (string) $pet['name'] : '';
+    $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '-', $name) ?? '';
+    $safeName = trim($safeName, '-');
+    if ($safeName === '') {
+        $safeName = isset($pet['slug']) ? (string) $pet['slug'] : 'pet';
+    }
+
+    $version = isset($pet['spriteVersion']) ? (int) $pet['spriteVersion'] : 2;
+    $suffix = $version > 0 ? '-v' . $version : '';
+    return $safeName . $suffix . '.' . $extension;
+}
+
 function menagerie_slugify(string $name): string
 {
     $ascii = function_exists('iconv') ? iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name) : $name;
