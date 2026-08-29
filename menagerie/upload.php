@@ -4,7 +4,6 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'lib.php';
 
 menagerie_start_session();
 $error = '';
-$success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
@@ -99,7 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             @rmdir($petDir);
                             $error = 'The catalog could not be updated.';
                         } else {
-                            $success = $pet;
+                            header('Location: profile.php?pet=' . rawurlencode($slug), true, 303);
+                            exit;
                         }
                     }
                 }
@@ -140,13 +140,6 @@ $csrf = $authenticated ? menagerie_csrf_token() : '';
     <section class="upload-panel">
       <?php if ($error !== ''): ?>
         <p class="message error" role="alert"><?= menagerie_escape($error) ?></p>
-      <?php endif; ?>
-
-      <?php if (is_array($success)): ?>
-        <div class="message success" role="status">
-          <strong><?= menagerie_escape((string) $success['name']) ?> was added.</strong><br>
-          <a href="profile.php?pet=<?= rawurlencode((string) $success['slug']) ?>">Open the new profile</a>
-        </div>
       <?php endif; ?>
 
       <?php if (!$authenticated): ?>
