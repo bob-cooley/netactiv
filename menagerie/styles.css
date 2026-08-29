@@ -292,9 +292,19 @@ button, input { font: inherit; }
 }
 
 .download-row {
-  margin-top: 18px;
-  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 22px 4px 4px;
   border-top: 1px solid #34393e;
+}
+
+.download-note {
+  margin: 0 0 0 auto;
+  color: #aeb5bc;
+  font-size: 0.88rem;
+  text-align: right;
 }
 
 input[type="range"] { accent-color: #74b8ec; }
@@ -357,4 +367,6 @@ input[type="checkbox"] { width: 17px; height: 17px; accent-color: #74b8ec; }
   .stage-panel { padding: 14px; }
   .stage { min-height: 246px; }
   .upload-panel { padding: 18px; }
+  .download-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .download-note { margin-left: 0; text-align: left; }
 }
