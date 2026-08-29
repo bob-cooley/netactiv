@@ -308,10 +308,10 @@ button, input { font: inherit; }
 
 .download-button {
   border-color: #4e8b67;
-  background: #1f4a34;
+  background: #2a6045;
 }
 
-.download-button:hover { background: #2a6045; }
+.download-button:hover { background: #367b56; }
 
 .download-note {
   margin: 0 0 0 auto;
