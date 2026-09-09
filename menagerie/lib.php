@@ -340,6 +340,26 @@ function menagerie_update_pet(array $currentPet, string $name, string $newSlug):
     return $saved ? $updated : null;
 }
 
+function menagerie_replace_pet_sprite(array $pet, string $temporaryFile): bool
+{
+    $sprite = menagerie_resolve_pet_sprite($pet);
+    if ($sprite === null || !is_uploaded_file($temporaryFile)) {
+        return false;
+    }
+
+    $replacement = $sprite['path'] . '.replacement-' . bin2hex(random_bytes(8));
+    if (!move_uploaded_file($temporaryFile, $replacement)) {
+        return false;
+    }
+
+    chmod($replacement, 0644);
+    if (!rename($replacement, $sprite['path'])) {
+        @unlink($replacement);
+        return false;
+    }
+    return true;
+}
+
 function menagerie_start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) return;

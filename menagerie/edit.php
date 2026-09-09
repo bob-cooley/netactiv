@@ -35,18 +35,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = preg_replace('/[\x00-\x1F\x7F]/u', '', $name) ?? '';
         $nameLength = function_exists('mb_strlen') ? mb_strlen($name, 'UTF-8') : strlen($name);
         $newSlug = menagerie_slugify((string) ($_POST['pet_slug'] ?? ''));
+        $file = $_FILES['sprite_sheet'] ?? null;
+        $replacingSprite = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
 
         if ($name === '' || $nameLength > 60) {
             $error = 'Enter a pet name between 1 and 60 characters.';
         } elseif (!menagerie_slug_is_available($newSlug, $slug)) {
             $error = 'That profile URL is already in use.';
+        } elseif ($replacingSprite && (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+            || (int) ($file['size'] ?? 0) < 1 || (int) ($file['size'] ?? 0) > MENAGERIE_MAX_UPLOAD_BYTES)) {
+            $error = 'Select a valid replacement sprite sheet.';
         } else {
-            $updated = menagerie_update_pet($pet, $name, $newSlug);
-            if ($updated === null) {
-                $error = 'The Pet could not be updated. Try again.';
+            $temporaryFile = $replacingSprite ? (string) $file['tmp_name'] : '';
+            $image = $replacingSprite ? @getimagesize($temporaryFile) : null;
+            $mime = $replacingSprite ? (new finfo(FILEINFO_MIME_TYPE))->file($temporaryFile) : '';
+            $expected = menagerie_expected_dimensions();
+            $allowed = ['image/png', 'image/webp'];
+
+            if ($replacingSprite && (!in_array($mime, $allowed, true) || !is_array($image) || $expected === null
+                || (int) $image[0] !== $expected[0] || (int) $image[1] !== $expected[1])) {
+                $error = 'The replacement does not match the required pet-sheet format.';
+            } elseif ($replacingSprite && !menagerie_replace_pet_sprite($pet, $temporaryFile)) {
+                $error = 'The replacement sprite sheet could not be stored.';
             } else {
-                header('Location: profile.php?pet=' . rawurlencode((string) $updated['slug']), true, 303);
-                exit;
+                $updated = menagerie_update_pet($pet, $name, $newSlug);
+                if ($updated === null) {
+                $error = 'The Pet could not be updated. Try again.';
+                } else {
+                    header('Location: profile.php?pet=' . rawurlencode((string) $updated['slug']), true, 303);
+                    exit;
+                }
             }
         }
     }
@@ -83,11 +101,16 @@ $csrf = menagerie_csrf_token();
         <p class="message error" role="alert"><?= menagerie_escape($error) ?></p>
       <?php endif; ?>
 
-      <form method="post">
+      <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="csrf" value="<?= menagerie_escape($csrf) ?>">
         <div class="field">
           <label for="petName">Pet name</label>
           <input class="text-input" id="petName" name="pet_name" type="text" maxlength="60" value="<?= menagerie_escape((string) $pet['name']) ?>" required>
+        </div>
+        <div class="field">
+          <label for="spriteSheet">Replace sprite sheet</label>
+          <input id="spriteSheet" name="sprite_sheet" type="file" accept="image/png,image/webp">
+          <p class="fine-print">Optional. A replacement keeps this Pet's name, profile URL, and catalog entry.</p>
         </div>
         <div class="field">
           <label for="petSlug">Profile URL</label>
