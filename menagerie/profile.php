@@ -96,7 +96,7 @@ $petJson = json_encode(
 
   <?php if ($found): ?>
     <script>window.MENAGERIE_PET = <?= $petJson ?>;</script>
-    <script src="profile.js"></script>
+    <script src="profile.js?v=2"></script>
   <?php endif; ?>
 </body>
 </html>

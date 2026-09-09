@@ -3,13 +3,13 @@ const states = [
   { name: "running-right", row: 1, frames: 8 },
   { name: "running-left", row: 2, frames: 8 },
   { name: "waving", row: 3, frames: 4 },
-  { name: "jumping", row: 4, frames: 5 },
-  { name: "failed", row: 5, frames: 8 },
+  { name: "jumping", row: 4, frames: 6 },
+  { name: "failed", row: 5, frames: 4 },
   { name: "waiting", row: 6, frames: 6 },
-  { name: "running", row: 7, frames: 6 },
+  { name: "running", row: 7, frames: 8 },
   { name: "review", row: 8, frames: 6 },
-  { name: "look directions, first half", row: 9, frames: 8 },
-  { name: "look directions, second half", row: 10, frames: 8 },
+  { name: "look directions, first half", row: 9, frames: 4 },
+  { name: "look directions, second half", row: 10, frames: 4 },
 ];
 
 const pet = document.querySelector("#pet");
