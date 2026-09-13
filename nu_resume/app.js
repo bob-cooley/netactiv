@@ -1,7 +1,7 @@
 (function () {
   var GLOBE_KEY = 'nu_resume_globe';
   var canvas = document.getElementById('globe-canvas');
-  var globeStage = document.getElementById('globe-stage');
+  var hero = document.getElementById('hero');
   var current = null;
   var currentGlobeId = null;
 
@@ -39,7 +39,7 @@
     if (view === currentView) return;
     currentView = view;
 
-    globeStage.classList.toggle('is-receded', view !== 'home');
+    hero.classList.toggle('is-receded', view !== 'home');
 
     panels.forEach(function (panel) {
       var isActive = panel.dataset.panel === view;
