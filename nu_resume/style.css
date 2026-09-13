@@ -41,7 +41,7 @@ button, select {
 
 .hero-name {
   font-family: 'Jost', 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-weight: 500;
+  font-weight: 300;
   font-size: clamp(40px, 5.6vw, 80px);
   line-height: 1;
   letter-spacing: -0.01em;
