@@ -27,6 +27,14 @@
     el.textContent = addr;
   });
 
+  // Same treatment for the phone number — split across three attributes so
+  // no single attribute value is itself a scrapable 10-digit string.
+  document.querySelectorAll('.phone-link').forEach(function (el) {
+    var a = el.dataset.a, b = el.dataset.b, c = el.dataset.c;
+    el.href = 'tel:+1' + a + b + c;
+    el.textContent = '(' + a + ') ' + b + '-' + c;
+  });
+
   function mountGlobe(which) {
     if (which === currentGlobeId) return;
     if (current) current.stop();
