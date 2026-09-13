@@ -87,11 +87,40 @@
     toggleSettings();
   });
   settingsPanel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  // ---------- Resume download dropdown ----------
+
+  var downloadBtn = document.getElementById('download-btn');
+  var downloadMenu = document.getElementById('download-menu');
+
+  function closeDownloadMenu() {
+    if (!downloadBtn) return;
+    downloadMenu.hidden = true;
+    downloadBtn.setAttribute('aria-expanded', 'false');
+  }
+  function toggleDownloadMenu() {
+    var willOpen = downloadMenu.hidden;
+    downloadMenu.hidden = !willOpen;
+    downloadBtn.setAttribute('aria-expanded', String(willOpen));
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleDownloadMenu();
+    });
+    downloadMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+
   document.addEventListener('click', function () {
     if (!settingsPanel.hidden) closeSettings();
+    if (downloadBtn && !downloadMenu.hidden) closeDownloadMenu();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeSettings();
+    if (e.key === 'Escape') {
+      closeSettings();
+      closeDownloadMenu();
+    }
   });
 
   // ---------- Dev: reload & clear cache ----------

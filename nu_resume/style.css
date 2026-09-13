@@ -206,7 +206,7 @@ button, select {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 96px 48px 48px 160px;
   opacity: 0;
   transform: translateY(18px);
@@ -239,6 +239,87 @@ button, select {
 .contact-line a:hover, .contact-list a:hover { text-decoration: underline; }
 .panel-lede { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
 .coming-soon { color: var(--accent); }
+
+.resume-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+
+.download-wrap { position: relative; flex-shrink: 0; }
+.download-btn {
+  background: rgba(153,0,0,0.1);
+  border: 1px solid rgba(153,0,0,0.4);
+  color: var(--accent);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+.download-btn:hover { background: rgba(153,0,0,0.18); }
+.download-btn .caret { font-size: 10px; margin-left: 2px; }
+.download-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+  z-index: 5;
+}
+.download-menu a {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+.download-menu a:hover { background: rgba(153,0,0,0.12); color: var(--accent); }
+
+.summary-lede { font-size: 15px; line-height: 1.6; color: var(--text-dim); margin-top: 20px; max-width: 640px; }
+
+.skills-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 24px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.skills-list li { padding-left: 14px; position: relative; }
+.skills-list li::before { content: '—'; position: absolute; left: 0; color: var(--accent); }
+
+.role-block { margin-bottom: 26px; }
+.role-block:last-child { margin-bottom: 0; }
+.role-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.role-title { font-size: 15px; font-weight: 700; }
+.role-company { font-weight: 400; color: var(--text-dim); }
+.role-desc { font-size: 13.5px; line-height: 1.6; color: var(--text-dim); margin-bottom: 10px; }
+.highlight-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  padding-left: 16px;
+  margin-bottom: 10px;
+}
+.highlight-list li { position: relative; }
+.highlight-list li::before { content: '·'; position: absolute; left: -14px; color: var(--accent); font-weight: 700; }
+.highlight-list strong { color: var(--text); }
+.highlight-list em { font-style: normal; color: var(--accent); }
+.clients-line { font-size: 12.5px; line-height: 1.6; color: var(--text-dim); }
+.clients-line strong { color: var(--text); font-weight: 600; }
 
 /* Metrics — typographic objects, staggered arrival */
 
