@@ -2,7 +2,7 @@
   --bg: #0a0a0f;
   --panel-bg: #131319;
   --field-bg: #0c0c11;
-  --teal: #00e6c3;
+  --accent: #990000;
   --text: #eaeaef;
   --text-dim: #8c8c98;
   --border: rgba(255, 255, 255, 0.08);
@@ -88,8 +88,8 @@ button, select {
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s, color 0.2s, transform 0.3s;
 }
-.gear-btn:hover { color: var(--teal); background: rgba(255,255,255,0.1); }
-.gear-btn[aria-expanded="true"] { color: var(--teal); transform: rotate(35deg); }
+.gear-btn:hover { color: var(--accent); background: rgba(255,255,255,0.1); }
+.gear-btn[aria-expanded="true"] { color: var(--accent); transform: rotate(35deg); }
 
 .settings-panel {
   position: absolute;
@@ -143,9 +143,9 @@ button, select {
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 .globe-toggle-btn.is-active {
-  color: var(--teal);
-  border-color: rgba(0,230,195,0.35);
-  background: rgba(0,230,195,0.07);
+  color: var(--accent);
+  border-color: rgba(153,0,0,0.4);
+  background: rgba(153,0,0,0.1);
 }
 .settings-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 .settings-action {
@@ -195,7 +195,7 @@ button, select {
   transition: color 0.2s, background 0.2s;
 }
 .rail-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.rail-link.is-active { color: var(--teal); background: rgba(0,230,195,0.08); }
+.rail-link.is-active { color: var(--accent); background: rgba(153,0,0,0.12); }
 .rail-link--home { text-align: center; font-size: 17px; letter-spacing: 0; }
 
 /* ---------- Content panels ---------- */
@@ -223,7 +223,7 @@ button, select {
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--accent);
   margin-bottom: 14px;
 }
 .name {
@@ -235,10 +235,10 @@ button, select {
 }
 .title-line { font-size: 16px; font-weight: 500; color: var(--text-dim); margin-bottom: 18px; }
 .contact-line { font-size: 13px; color: var(--text-dim); }
-.contact-line a, .contact-list a { color: var(--teal); text-decoration: none; }
+.contact-line a, .contact-list a { color: var(--accent); text-decoration: none; }
 .contact-line a:hover, .contact-list a:hover { text-decoration: underline; }
 .panel-lede { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
-.coming-soon { color: var(--teal); }
+.coming-soon { color: var(--accent); }
 
 /* Metrics — typographic objects, staggered arrival */
 
@@ -299,7 +299,7 @@ button, select {
 .case-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .case-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .case-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
-.case-metric { font-size: 12px; font-weight: 600; color: var(--teal); }
+.case-metric { font-size: 12px; font-weight: 600; color: var(--accent); }
 
 /* Contact */
 
