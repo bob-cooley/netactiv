@@ -19,6 +19,14 @@
     window.addEventListener('resize', syncHeaderHeight);
   }
 
+  // Build mailto links at runtime so the address never sits in the HTML
+  // source as a scrapable user@domain pattern.
+  document.querySelectorAll('.email-link').forEach(function (el) {
+    var addr = el.dataset.user + '@' + el.dataset.domain;
+    el.href = 'mailto:' + addr;
+    el.textContent = addr;
+  });
+
   function mountGlobe(which) {
     if (which === currentGlobeId) return;
     if (current) current.stop();
