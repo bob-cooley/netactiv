@@ -5,6 +5,20 @@
   var current = null;
   var currentGlobeId = null;
 
+  // Keep --header-h in sync with the header's real rendered height (it can
+  // wrap to two rows on narrow viewports), so panel/page top padding never
+  // guesses wrong and hides content behind the header.
+  var siteHeader = document.querySelector('.site-header');
+  function syncHeaderHeight() {
+    document.documentElement.style.setProperty('--header-h', siteHeader.offsetHeight + 'px');
+  }
+  syncHeaderHeight();
+  if (window.ResizeObserver) {
+    new ResizeObserver(syncHeaderHeight).observe(siteHeader);
+  } else {
+    window.addEventListener('resize', syncHeaderHeight);
+  }
+
   function mountGlobe(which) {
     if (which === currentGlobeId) return;
     if (current) current.stop();

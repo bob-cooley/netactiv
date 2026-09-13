@@ -7,6 +7,7 @@
   --text-dim: #8c8c98;
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
+  --header-h: clamp(74px, 10vw, 104px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,7 +31,7 @@ button, select {
   z-index: 0;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 64px 24px 0;
+  padding: calc(var(--header-h) + 24px) 24px 0;
   transition: opacity 0.6s cubic-bezier(.22,.61,.36,1), transform 0.6s cubic-bezier(.22,.61,.36,1);
   transform-origin: center top;
 }
@@ -38,18 +39,6 @@ button, select {
   opacity: 0.16;
   transform: scale(0.94);
 }
-
-.hero-name {
-  font-family: 'Jost', 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-weight: 300;
-  font-size: clamp(40px, 5.6vw, 80px);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  text-transform: lowercase;
-  margin-bottom: clamp(20px, 3vw, 40px);
-}
-.hn-bob { color: #858585; }
-.hn-cooley { color: #fff; }
 
 .globe-wrap {
   position: relative;
@@ -62,18 +51,35 @@ button, select {
   height: 100%;
 }
 
-/* ---------- Header (gear only — the hero name is the logo now) ---------- */
+/* ---------- Header (persistent — name, download, gear; never recedes) ---------- */
 
 .site-header {
   position: fixed;
   top: 0; left: 0; right: 0;
+  min-height: var(--header-h);
   display: flex;
-  justify-content: flex-end;
-  padding: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px clamp(20px, 4vw, 28px);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
   z-index: 50;
-  pointer-events: none;
 }
-.site-header .gear-wrap { pointer-events: auto; }
+
+.hero-name {
+  font-family: 'Jost', 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 300;
+  font-size: clamp(32px, 5vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+}
+.hn-bob { color: #858585; }
+.hn-cooley { color: #fff; }
+
+.header-actions { display: flex; align-items: center; gap: 12px; }
 
 .gear-wrap { position: relative; }
 
@@ -207,7 +213,7 @@ button, select {
   inset: 0;
   display: flex;
   align-items: flex-start;
-  padding: 96px 48px 48px 160px;
+  padding: calc(var(--header-h) + 32px) 48px 48px 160px;
   opacity: 0;
   transform: translateY(18px);
   pointer-events: none;
@@ -239,8 +245,6 @@ button, select {
 .contact-line a:hover, .contact-list a:hover { text-decoration: underline; }
 .panel-lede { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
 .coming-soon { color: var(--accent); }
-
-.resume-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
 
 .download-wrap { position: relative; flex-shrink: 0; }
 .download-btn {
@@ -413,7 +417,7 @@ button, select {
   html, body { overflow-y: auto; }
   .left-rail { display: none; }
   .bottom-bar { display: flex; }
-  .panel { padding: 88px 20px 104px; align-items: flex-start; }
+  .panel { padding: calc(var(--header-h) + 24px) 20px 104px; align-items: flex-start; }
   .panel-inner { padding-top: 8px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .contact-list li { flex-direction: column; gap: 4px; }

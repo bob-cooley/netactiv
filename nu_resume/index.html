@@ -12,32 +12,47 @@
 <body>
 
   <header class="site-header">
-    <div class="gear-wrap">
-      <button id="gear-btn" class="gear-btn" aria-label="Settings" aria-expanded="false">⚙</button>
-      <div id="settings-panel" class="settings-panel" hidden>
-        <div class="settings-title">SETTINGS</div>
+    <div class="hero-name" aria-label="Bob Cooley"><span class="hn-bob">bob</span><span class="hn-cooley">cooley</span></div>
 
-        <div class="settings-group">
-          <label class="settings-label" for="view-select">VIEW</label>
-          <select id="view-select" class="settings-select">
-            <option value="home">Globe</option>
-            <option value="resume">Resume</option>
-            <option value="case-studies">Case Studies</option>
-            <option value="whitepapers">Whitepapers</option>
-            <option value="contact">Contact</option>
-          </select>
+    <div class="header-actions">
+      <div class="download-wrap">
+        <button type="button" id="download-btn" class="download-btn" aria-haspopup="true" aria-expanded="false">
+          Download Resume <span class="caret">▾</span>
+        </button>
+        <div id="download-menu" class="download-menu" hidden>
+          <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-Full.pdf">Full Version</a>
+          <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-Scannable.pdf">Scannable</a>
+          <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-ATS.pdf">ATS-Friendly</a>
         </div>
+      </div>
 
-        <div class="settings-group">
-          <span class="settings-label">GLOBE</span>
-          <div class="globe-toggle" role="radiogroup" aria-label="Globe variant">
-            <button type="button" class="globe-toggle-btn is-active" data-globe="a">Globe A — netActiv</button>
-            <button type="button" class="globe-toggle-btn" data-globe="b">Globe B — Emergence</button>
+      <div class="gear-wrap">
+        <button id="gear-btn" class="gear-btn" aria-label="Settings" aria-expanded="false">⚙</button>
+        <div id="settings-panel" class="settings-panel" hidden>
+          <div class="settings-title">SETTINGS</div>
+
+          <div class="settings-group">
+            <label class="settings-label" for="view-select">VIEW</label>
+            <select id="view-select" class="settings-select">
+              <option value="home">Globe</option>
+              <option value="resume">Resume</option>
+              <option value="case-studies">Case Studies</option>
+              <option value="whitepapers">Whitepapers</option>
+              <option value="contact">Contact</option>
+            </select>
           </div>
-        </div>
 
-        <hr class="settings-divider">
-        <button id="reload-cache-btn" class="settings-action">Reload &amp; clear cache</button>
+          <div class="settings-group">
+            <span class="settings-label">GLOBE</span>
+            <div class="globe-toggle" role="radiogroup" aria-label="Globe variant">
+              <button type="button" class="globe-toggle-btn is-active" data-globe="a">Globe A — netActiv</button>
+              <button type="button" class="globe-toggle-btn" data-globe="b">Globe B — Emergence</button>
+            </div>
+          </div>
+
+          <hr class="settings-divider">
+          <button id="reload-cache-btn" class="settings-action">Reload &amp; clear cache</button>
+        </div>
       </div>
     </div>
   </header>
@@ -52,7 +67,6 @@
 
   <main class="stage">
     <div class="page" id="hero">
-      <div class="hero-name" aria-label="Bob Cooley"><span class="hn-bob">bob</span><span class="hn-cooley">cooley</span></div>
       <div class="globe-wrap">
         <canvas id="globe-canvas"></canvas>
       </div>
@@ -62,26 +76,11 @@
 
       <section class="panel" data-panel="resume">
         <div class="panel-inner">
-          <div class="resume-head">
-            <div>
-              <p class="eyebrow">Resume</p>
-              <h1 class="name">Bob Cooley</h1>
-              <p class="title-line">Communications Strategist / Digital Workplace Leader</p>
-              <p class="contact-line">
-                <a href="mailto:bob@bobcooley.nyc">bob@bobcooley.nyc</a> &middot; (917) 586-7704 &middot; Greenwich Village, NYC
-              </p>
-            </div>
-            <div class="download-wrap">
-              <button type="button" id="download-btn" class="download-btn" aria-haspopup="true" aria-expanded="false">
-                Download Resume <span class="caret">▾</span>
-              </button>
-              <div id="download-menu" class="download-menu" hidden>
-                <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-Full.pdf">Full Version</a>
-                <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-Scannable.pdf">Scannable</a>
-                <a href="assets/bob-cooley-resume.pdf" download="Bob-Cooley-Resume-ATS.pdf">ATS-Friendly</a>
-              </div>
-            </div>
-          </div>
+          <p class="eyebrow">Resume</p>
+          <p class="title-line">Communications Strategist / Digital Workplace Leader</p>
+          <p class="contact-line">
+            <a href="mailto:bob@bobcooley.nyc">bob@bobcooley.nyc</a> &middot; (917) 586-7704 &middot; Greenwich Village, NYC
+          </p>
 
           <p class="summary-lede">Strategic thought leader who champions teamwork, innovation, and creative problem solving — bridging communications, technology, and culture to drive measurable business outcomes while cultivating a positive, collaborative work culture.</p>
 
