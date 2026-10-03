@@ -241,7 +241,7 @@
     const rect = canvas.getBoundingClientRect();
     W = canvas.width  = Math.round(rect.width);
     H = canvas.height = Math.round(rect.height);
-    R = H / 2.1;
+    R = H / 4.2;
     Rdraw = R;
     cx = W - R * 1.04;
     cy = H * 0.5;
