@@ -43,11 +43,12 @@
           </div>
 
           <div class="settings-group">
-            <span class="settings-label">GLOBE</span>
-            <div class="globe-toggle" role="radiogroup" aria-label="Globe variant">
-              <button type="button" class="globe-toggle-btn is-active" data-globe="a">Globe A — netActiv</button>
-              <button type="button" class="globe-toggle-btn" data-globe="b">Globe B — Emergence</button>
-            </div>
+            <label class="settings-label" for="globe-select">GLOBE</label>
+            <select id="globe-select" class="settings-select">
+              <option value="a">Globe A — netActiv</option>
+              <option value="b">Globe B — Emergence</option>
+              <option value="c">Globe C — Hex DGGS</option>
+            </select>
           </div>
 
           <hr class="settings-divider">
@@ -225,6 +226,7 @@
 
   <script src="globe-a.js"></script>
   <script src="globe-b.js"></script>
+  <script src="globe-c.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

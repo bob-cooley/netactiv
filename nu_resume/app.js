@@ -35,28 +35,30 @@
     el.textContent = '(' + a + ') ' + b + '-' + c;
   });
 
+  var globeSelect = document.getElementById('globe-select');
+
   function mountGlobe(which) {
     if (which === currentGlobeId) return;
     if (current) current.stop();
-    var factory = which === 'b' ? window.GlobeB : window.GlobeA;
+    var factories = { a: window.GlobeA, b: window.GlobeB, c: window.GlobeC };
+    var factory = factories[which] || window.GlobeA;
     current = factory.create(canvas);
     current.start();
     currentGlobeId = which;
 
-    document.querySelectorAll('.globe-toggle-btn').forEach(function (btn) {
-      btn.classList.toggle('is-active', btn.dataset.globe === which);
-    });
+    if (globeSelect && globeSelect.value !== which) globeSelect.value = which;
 
     try { localStorage.setItem(GLOBE_KEY, which); } catch (e) {}
   }
 
   var storedGlobe = 'a';
   try { storedGlobe = localStorage.getItem(GLOBE_KEY) || 'a'; } catch (e) {}
-  mountGlobe(storedGlobe === 'b' ? 'b' : 'a');
+  var validGlobes = { a: true, b: true, c: true };
+  mountGlobe(validGlobes[storedGlobe] ? storedGlobe : 'a');
 
-  document.querySelectorAll('.globe-toggle-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () { mountGlobe(btn.dataset.globe); });
-  });
+  if (globeSelect) {
+    globeSelect.addEventListener('change', function () { mountGlobe(globeSelect.value); });
+  }
 
   // ---------- View / panel routing ----------
 
