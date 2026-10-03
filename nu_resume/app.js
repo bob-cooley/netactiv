@@ -57,7 +57,10 @@
   mountGlobe(validGlobes[storedGlobe] ? storedGlobe : 'a');
 
   if (globeSelect) {
-    globeSelect.addEventListener('change', function () { mountGlobe(globeSelect.value); });
+    globeSelect.addEventListener('change', function () {
+      mountGlobe(globeSelect.value);
+      closeSettings();
+    });
   }
 
   // ---------- View / panel routing ----------
