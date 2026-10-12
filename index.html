@@ -12,7 +12,8 @@
 
     body {
       background: #070707;
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
 
     /* Full-screen glitch overlay — above everything, pointer-events:none */
@@ -40,15 +41,7 @@
       100% { opacity: 0;    background: transparent;                                                                                                            transform: translateX(0); }
     }
 
-    .page {
-      position: relative;
-      z-index: 1;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px 24px 0;
-    }
-
-    /* Canvas-only shake during overcaffed — text overlay must not shake */
+    /* Canvas-only shake during overcaffed */
     body.overcaffed #home-globe {
       animation: page-shake 0.09s steps(1) infinite;
     }
@@ -61,13 +54,38 @@
       100% { transform: translate(0,    0); }
     }
 
-    .logo { padding-bottom: 32px; }
-    .logo img { width: 426px; max-width: 90vw; display: block; }
+    /* Full-viewport stage */
+    .page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
 
-    .globe-wrap { position: relative; width: 100%; }
-    #home-globe { display: block; width: 100%; }
+    /* Logo: absolute top-left */
+    .logo {
+      position: absolute;
+      top: 48px;
+      left: 64px;
+      z-index: 2;
+    }
+    .logo img {
+      width: clamp(260px, 33vw, 480px);
+      display: block;
+    }
 
-    /* Glitch text — left side, dark red, letter-corrupted by JS */
+    /* Canvas fills full viewport */
+    .globe-wrap {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+    #home-globe {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Glitch text — left side */
     #glitch-text {
       position: absolute;
       top: 50%;
@@ -86,16 +104,24 @@
     #glitch-text.active {
       animation: gt-appear 0.08s ease forwards;
     }
-
     @keyframes gt-appear { from { opacity: 0; } to { opacity: 1; } }
 
+    /* Footer: absolute bottom-left */
     footer {
+      position: absolute;
+      bottom: 24px;
+      left: 64px;
+      z-index: 2;
       font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 13px;
-      color: #666666;
+      color: #555555;
       letter-spacing: 0.03em;
-      text-align: left;
-      padding: 0 0 24px;
+    }
+
+    @media (max-width: 600px) {
+      .logo { top: 28px; left: 24px; }
+      .logo img { width: clamp(200px, 55vw, 320px); }
+      footer { left: 24px; }
     }
   </style>
 </head>
@@ -103,7 +129,7 @@
   <div id="glitch-overlay"></div>
   <div class="page">
     <div class="logo">
-      <img src="art/na-logo-long.svg" alt="netActiv">
+      <img src="art/2026-logo_longw-tag.png" alt="netActiv">
     </div>
     <div class="globe-wrap">
       <canvas id="home-globe"></canvas>
@@ -111,20 +137,6 @@
     </div>
     <footer id="site-footer">&copy; 2026 netActiv</footer>
   </div>
-
-  <script>
-    (function () {
-      var ref = document.createElement('div');
-      ref.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;' +
-        'left:0;top:0;padding:40px;font-size:16px;line-height:1.5;';
-      ref.innerHTML = new Array(18).join('<br>');
-      document.body.appendChild(ref);
-      var frameH = ref.getBoundingClientRect().height;
-      document.body.removeChild(ref);
-      var canvas = document.getElementById('home-globe');
-      canvas.style.height = Math.round(frameH * 1.575) + 'px';
-    })();
-  </script>
 
   <script src="home-globe.js"></script>
 </body>

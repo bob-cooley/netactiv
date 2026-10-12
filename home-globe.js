@@ -208,15 +208,15 @@
       ctx.closePath();
 
       const vis = z > 0 ? z : 0;
-      const fill = (0.06 + vis * 0.18) * flickerMult;
+      const fill = (0.06 + vis * 0.20) * flickerMult;
       ctx.fillStyle = cell.isPent
-        ? `rgba(70,12,12,${fill})`
-        : `rgba(8,28,62,${fill})`;
+        ? `rgba(80,8,45,${fill})`
+        : `rgba(55,8,28,${fill})`;
       ctx.fill();
 
       if (z > -0.15) {
-        const ea = (z > 0 ? 0.10 + vis * 0.32 : (z + 0.15) * 0.15) * flickerMult;
-        ctx.strokeStyle = `rgba(0,180,255,${ea})`;
+        const ea = (z > 0 ? 0.10 + vis * 0.36 : (z + 0.15) * 0.15) * flickerMult;
+        ctx.strokeStyle = `rgba(220,30,130,${ea})`;
         ctx.lineWidth   = vis > 0.5 ? 0.7 : 0.4;
         ctx.stroke();
       }
@@ -224,9 +224,9 @@
 
     // Rim glow
     const rim = ctx.createRadialGradient(cx, cy, Rdraw * 0.88, cx, cy, Rdraw * 1.18);
-    rim.addColorStop(0,    `rgba(0,170,255,${0.12 * flickerMult})`);
-    rim.addColorStop(0.55, `rgba(0,120,220,${0.05 * flickerMult})`);
-    rim.addColorStop(1,    'rgba(0,70,180,0)');
+    rim.addColorStop(0,    `rgba(190,20,100,${0.18 * flickerMult})`);
+    rim.addColorStop(0.55, `rgba(140,10,65,${0.07 * flickerMult})`);
+    rim.addColorStop(1,    'rgba(100,0,50,0)');
     ctx.beginPath();
     ctx.arc(cx, cy, Rdraw * 1.18, 0, Math.PI * 2);
     ctx.fillStyle = rim;
@@ -241,18 +241,12 @@
     const rect = canvas.getBoundingClientRect();
     W = canvas.width  = Math.round(rect.width);
     H = canvas.height = Math.round(rect.height);
-    R = H / 4.2;
+    R = H * 0.43;
     Rdraw = R;
-    cx = W - R * 1.04;
-    cy = H * 0.5;
+    cx = W * 0.855;
+    cy = H * 0.72;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
-
-    const footer = document.getElementById('site-footer');
-    if (footer) {
-      const excess = H - (cy + R);
-      footer.style.marginTop = Math.round(-excess + 14) + 'px';
-    }
   }
 
   // ── Letter glitch ─────────────────────────────────────────────────────────────
