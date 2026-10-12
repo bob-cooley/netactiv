@@ -190,7 +190,19 @@
     ctx.clearRect(0, 0, W, H);
     cx += joltX; cy += joltY;
 
-    // Solid dark sphere base — creates the sharp circular boundary visible in the design
+    // Large dark sphere silhouette (background element, separate from hex globe)
+    const bgR = H * 0.365;
+    const bgGrad = ctx.createRadialGradient(cx, cy, bgR * 0.3, cx, cy, bgR);
+    bgGrad.addColorStop(0, 'rgba(10, 4, 6, 0.92)');
+    bgGrad.addColorStop(0.75, 'rgba(8, 3, 5, 0.90)');
+    bgGrad.addColorStop(0.92, 'rgba(5, 2, 3, 0.55)');
+    bgGrad.addColorStop(1, 'rgba(2, 1, 2, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, bgR, 0, Math.PI * 2);
+    ctx.fillStyle = bgGrad;
+    ctx.fill();
+
+    // Small dark base for hex globe
     const sphereBase = ctx.createRadialGradient(cx - Rdraw * 0.18, cy - Rdraw * 0.18, 0, cx, cy, Rdraw);
     sphereBase.addColorStop(0, 'rgba(14, 5, 9, 0.96)');
     sphereBase.addColorStop(1, 'rgba(4, 1, 3, 0.99)');
@@ -250,10 +262,10 @@
     const rect = canvas.getBoundingClientRect();
     W = canvas.width  = Math.round(rect.width);
     H = canvas.height = Math.round(rect.height);
-    R = H * 0.21;
+    R = H * 0.148;
     Rdraw = R;
-    cx = W * 0.915;
-    cy = H * 0.83;
+    cx = W * 0.850;
+    cy = H * 0.762;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
   }
