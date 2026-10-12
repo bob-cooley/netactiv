@@ -190,6 +190,15 @@
     ctx.clearRect(0, 0, W, H);
     cx += joltX; cy += joltY;
 
+    // Solid dark sphere base — creates the sharp circular boundary visible in the design
+    const sphereBase = ctx.createRadialGradient(cx - Rdraw * 0.18, cy - Rdraw * 0.18, 0, cx, cy, Rdraw);
+    sphereBase.addColorStop(0, 'rgba(14, 5, 9, 0.96)');
+    sphereBase.addColorStop(1, 'rgba(4, 1, 3, 0.99)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, Rdraw, 0, Math.PI * 2);
+    ctx.fillStyle = sphereBase;
+    ctx.fill();
+
     // Rotate cell centers and sort back-to-front (painter's algorithm)
     const sorted = cells.map(cell => ({ cell, z: rot(cell.center)[2] }));
     sorted.sort((a, b) => a.z - b.z);
@@ -208,24 +217,24 @@
       ctx.closePath();
 
       const vis = z > 0 ? z : 0;
-      const fill = (0.06 + vis * 0.20) * flickerMult;
+      const fill = (0.10 + vis * 0.38) * flickerMult;
       ctx.fillStyle = cell.isPent
-        ? `rgba(80,8,45,${fill})`
-        : `rgba(55,8,28,${fill})`;
+        ? `rgba(90,12,50,${fill})`
+        : `rgba(70,10,36,${fill})`;
       ctx.fill();
 
       if (z > -0.15) {
-        const ea = (z > 0 ? 0.10 + vis * 0.36 : (z + 0.15) * 0.15) * flickerMult;
+        const ea = (z > 0 ? 0.12 + vis * 0.48 : (z + 0.15) * 0.18) * flickerMult;
         ctx.strokeStyle = `rgba(220,30,130,${ea})`;
-        ctx.lineWidth   = vis > 0.5 ? 0.7 : 0.4;
+        ctx.lineWidth   = vis > 0.5 ? 0.8 : 0.4;
         ctx.stroke();
       }
     });
 
     // Rim glow
     const rim = ctx.createRadialGradient(cx, cy, Rdraw * 0.88, cx, cy, Rdraw * 1.18);
-    rim.addColorStop(0,    `rgba(190,20,100,${0.18 * flickerMult})`);
-    rim.addColorStop(0.55, `rgba(140,10,65,${0.07 * flickerMult})`);
+    rim.addColorStop(0,    `rgba(190,20,100,${0.22 * flickerMult})`);
+    rim.addColorStop(0.55, `rgba(140,10,65,${0.09 * flickerMult})`);
     rim.addColorStop(1,    'rgba(100,0,50,0)');
     ctx.beginPath();
     ctx.arc(cx, cy, Rdraw * 1.18, 0, Math.PI * 2);
@@ -241,10 +250,10 @@
     const rect = canvas.getBoundingClientRect();
     W = canvas.width  = Math.round(rect.width);
     H = canvas.height = Math.round(rect.height);
-    R = H * 0.43;
+    R = H * 0.364;
     Rdraw = R;
-    cx = W * 0.855;
-    cy = H * 0.72;
+    cx = W * 0.846;
+    cy = H * 0.756;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
   }

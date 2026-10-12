@@ -64,12 +64,12 @@
     /* Logo: absolute top-left */
     .logo {
       position: absolute;
-      top: 48px;
-      left: 64px;
+      top: 42px;
+      left: 75px;
       z-index: 2;
     }
     .logo img {
-      width: clamp(260px, 33vw, 480px);
+      width: clamp(260px, 33vw, 460px);
       display: block;
     }
 
@@ -109,8 +109,8 @@
     /* Footer: absolute bottom-left */
     footer {
       position: absolute;
-      bottom: 24px;
-      left: 64px;
+      bottom: 80px;
+      left: 75px;
       z-index: 2;
       font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 13px;
@@ -121,7 +121,7 @@
     @media (max-width: 600px) {
       .logo { top: 28px; left: 24px; }
       .logo img { width: clamp(200px, 55vw, 320px); }
-      footer { left: 24px; }
+      footer { left: 24px; bottom: 40px; }
     }
   </style>
 </head>
