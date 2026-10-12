@@ -217,18 +217,16 @@
       ctx.closePath();
 
       const vis = z > 0 ? z : 0;
-      // Steep exponential falloff — only cells near dead-center (z≈1) glow visibly
-      const glow = vis > 0 ? Math.exp(-25 * (1 - vis)) : 0;
-      const fill = glow * 0.58 * flickerMult;
+      const fill = (0.10 + vis * 0.38) * flickerMult;
       ctx.fillStyle = cell.isPent
         ? `rgba(90,12,50,${fill})`
         : `rgba(70,10,36,${fill})`;
       ctx.fill();
 
-      if (z > 0.6) {
-        const ea = glow * 0.72 * flickerMult;
+      if (z > -0.15) {
+        const ea = (z > 0 ? 0.12 + vis * 0.48 : (z + 0.15) * 0.18) * flickerMult;
         ctx.strokeStyle = `rgba(220,30,130,${ea})`;
-        ctx.lineWidth   = vis > 0.85 ? 0.8 : 0.5;
+        ctx.lineWidth   = vis > 0.5 ? 0.8 : 0.4;
         ctx.stroke();
       }
     });
@@ -252,10 +250,10 @@
     const rect = canvas.getBoundingClientRect();
     W = canvas.width  = Math.round(rect.width);
     H = canvas.height = Math.round(rect.height);
-    R = H * 0.364;
+    R = H * 0.21;
     Rdraw = R;
-    cx = W * 0.846;
-    cy = H * 0.756;
+    cx = W * 0.915;
+    cy = H * 0.83;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
   }
