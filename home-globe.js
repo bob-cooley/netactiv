@@ -341,7 +341,7 @@
       if (ov) ov.classList.remove('active');
       document.body.classList.remove('overcaffed');
       stopLetterGlitch();
-    }, 2000);
+    }, 3000);
   });
 
   // ── Mouse drag ────────────────────────────────────────────────────────────────
