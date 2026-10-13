@@ -276,25 +276,38 @@
     if (!gt) return;
     const baseChars = ORIG_TEXT.split('');
     const nonSpace  = baseChars.map((c, i) => c !== ' ' ? i : -1).filter(i => i >= 0);
-    let zapIndex = -1, zapExpiry = 0;
+    const activeZaps = new Map(); // idx -> expiry
     letterTimer = setInterval(() => {
       const now = performance.now();
-      if (zapIndex === -1 && Math.random() < 0.08) {
-        zapIndex  = nonSpace[Math.floor(Math.random() * nonSpace.length)];
-        zapExpiry = now + 40 + Math.random() * 60;
+
+      // Randomly add new simultaneous zaps
+      while (Math.random() < 0.30 && activeZaps.size < 6) {
+        const idx = nonSpace[Math.floor(Math.random() * nonSpace.length)];
+        activeZaps.set(idx, now + 25 + Math.random() * 110);
       }
-      if (zapIndex !== -1) {
-        if (now < zapExpiry) {
-          const display = baseChars.slice();
-          display[zapIndex] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
-          const s = display.join('');
-          gt.textContent = s; gt.setAttribute('data-text', s);
-        } else {
-          zapIndex = -1;
-          gt.textContent = ORIG_TEXT; gt.setAttribute('data-text', ORIG_TEXT);
+
+      // Occasional burst: many letters scramble at once
+      if (Math.random() < 0.018) {
+        const burst = 5 + Math.floor(Math.random() * 7);
+        const shuffled = nonSpace.slice().sort(() => Math.random() - 0.5);
+        for (let i = 0; i < Math.min(burst, shuffled.length); i++) {
+          activeZaps.set(shuffled[i], now + 50 + Math.random() * 90);
         }
       }
-    }, 60);
+
+      // Expire old zaps
+      for (const [idx, expiry] of activeZaps) {
+        if (now >= expiry) activeZaps.delete(idx);
+      }
+
+      // Build display string
+      const display = baseChars.slice();
+      for (const idx of activeZaps.keys()) {
+        display[idx] = GCHARS[Math.floor(Math.random() * GCHARS.length)];
+      }
+      const s = display.join('');
+      gt.textContent = s; gt.setAttribute('data-text', s);
+    }, 40);
   }
 
   function stopLetterGlitch() {
