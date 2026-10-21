@@ -47,7 +47,8 @@ window.PhotoAscii = (function () {
         const dx = c.x - mouseX, dy = c.y - mouseY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const boost = dist < HOVER_RADIUS ? (1 - dist / HOVER_RADIUS) : 0;
-        const alpha = Math.min(1, c.lum * 0.85 + 0.15 + boost * 0.4);
+        const toned = Math.pow(c.lum, 1.4);
+        const alpha = Math.min(0.68, toned * 0.75 + 0.12 + boost * 0.3);
         ctx.fillStyle = `rgba(90,255,150,${alpha})`;
         ctx.fillText(c.ch, c.x, c.y);
       });

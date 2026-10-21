@@ -61,7 +61,8 @@ window.PhotoAsciiWipe = (function () {
         ctx.fillStyle = BG;
         ctx.fillRect(c.x - CELL / 2, c.y - CELL / 2, CELL, CELL);
         if (c.ch !== ' ') {
-          const alpha = Math.min(1, c.lum * 0.85 + 0.15);
+          const toned = Math.pow(c.lum, 1.4);
+          const alpha = Math.min(0.68, toned * 0.75 + 0.12);
           ctx.fillStyle = `rgba(90,255,150,${alpha})`;
           ctx.fillText(c.ch, c.x, c.y);
         }
