@@ -19,6 +19,7 @@
     glitch:   { gl: true,  factory: function () { return window.PhotoGlitch; } },
     halftone: { gl: false, factory: function () { return window.PhotoHalftone; } },
     ascii:    { gl: false, factory: function () { return window.PhotoAscii; } },
+    'ascii-wipe': { gl: false, factory: function () { return window.PhotoAsciiWipe; } },
   };
 
   var current = null;
