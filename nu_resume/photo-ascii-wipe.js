@@ -9,6 +9,7 @@ window.PhotoAsciiWipe = (function () {
   const CELL = 8;
   const RAMP = ' .:-=+*#%@';
   const BG = '#0a0a0f';
+  const HOLD_MS = 1500;
   const DURATION_MS = 2800;
 
   function create(canvas, image) {
@@ -43,7 +44,8 @@ window.PhotoAsciiWipe = (function () {
       if (!startTS) startTS = ts;
       const elapsed = ts - startTS;
       const total = cells.length;
-      const frac = Math.min(1, elapsed / DURATION_MS);
+      const wipeElapsed = Math.max(0, elapsed - HOLD_MS);
+      const frac = Math.min(1, wipeElapsed / DURATION_MS);
       const erased = Math.floor(frac * total);
       const loCount = Math.ceil(erased / 2);
       const hiCount = erased - loCount;
