@@ -78,7 +78,20 @@
 
       <!-- TEMP: sizing test page, remove later -->
       <section class="panel" data-panel="photo-test">
-        <img id="temp-size-test" src="assets/test-photo.jpg" width="299" height="347" alt="">
+        <div class="photo-test-wrap">
+          <div class="photo-test-controls">
+            <label for="photo-effect-select">Effect</label>
+            <select id="photo-effect-select" class="settings-select">
+              <option value="static">Static</option>
+              <option value="particle">Particle Build</option>
+              <option value="drag">Pixel Drag</option>
+              <option value="ripple">WebGL Ripple</option>
+            </select>
+          </div>
+          <img id="temp-size-test" class="photo-source-hidden" src="assets/test-photo.jpg" width="299" height="347" alt="">
+          <canvas id="photo-canvas-2d" width="299" height="347"></canvas>
+          <canvas id="photo-canvas-gl" width="299" height="347" hidden></canvas>
+        </div>
       </section>
 
       <section class="panel" data-panel="resume">
@@ -234,5 +247,11 @@
   <script src="globe-b.js"></script>
   <script src="globe-c.js"></script>
   <script src="app.js"></script>
+
+  <!-- TEMP: photo effect test, remove along with the files above -->
+  <script src="photo-particle.js"></script>
+  <script src="photo-drag.js"></script>
+  <script src="photo-ripple.js"></script>
+  <script src="photo-test.js"></script>
 </body>
 </html>
