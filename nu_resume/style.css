@@ -204,6 +204,8 @@ button, select {
 }
 .panel.is-active { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
+.panel[data-panel="photo-test"] { align-items: center; justify-content: center; }
+
 .panel-inner { max-width: 780px; width: 100%; margin: 0 auto; }
 
 .eyebrow {
