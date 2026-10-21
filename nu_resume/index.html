@@ -79,23 +79,8 @@
       <!-- TEMP: sizing test page, remove later -->
       <section class="panel" data-panel="photo-test">
         <div class="photo-test-wrap">
-          <div class="photo-test-controls">
-            <label for="photo-effect-select">Effect</label>
-            <select id="photo-effect-select" class="settings-select">
-              <option value="static">Static</option>
-              <option value="particle">Particle Build</option>
-              <option value="drag">Pixel Drag</option>
-              <option value="ripple">WebGL Ripple</option>
-              <option value="repel">Mouse Repel</option>
-              <option value="glitch">RGB Glitch</option>
-              <option value="halftone">Halftone</option>
-              <option value="ascii">ASCII Art</option>
-              <option value="ascii-wipe">ASCII Wipe</option>
-            </select>
-          </div>
           <img id="temp-size-test" class="photo-source-hidden" src="assets/test-photo.jpg" width="299" height="347" alt="">
           <canvas id="photo-canvas-2d" width="299" height="347"></canvas>
-          <canvas id="photo-canvas-gl" width="299" height="347" hidden></canvas>
         </div>
       </section>
 
@@ -254,13 +239,6 @@
   <script src="app.js"></script>
 
   <!-- TEMP: photo effect test, remove along with the files above -->
-  <script src="photo-particle.js"></script>
-  <script src="photo-drag.js"></script>
-  <script src="photo-ripple.js"></script>
-  <script src="photo-repel.js"></script>
-  <script src="photo-glitch.js"></script>
-  <script src="photo-halftone.js"></script>
-  <script src="photo-ascii.js"></script>
   <script src="photo-ascii-wipe.js"></script>
   <script src="photo-test.js"></script>
 </body>
