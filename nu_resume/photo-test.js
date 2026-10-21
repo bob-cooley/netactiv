@@ -1,6 +1,6 @@
 // TEMP wiring for the photo-effect sizing test page. Entirely self-contained
-// so it (and photo-particle.js / photo-drag.js / photo-ripple.js) can be
-// deleted wholesale later along with its two <script> tags in index.html.
+// so it (and the photo-*.js effect files) can be deleted wholesale later
+// along with their <script> tags in index.html.
 (function () {
   var panel = document.querySelector('.panel[data-panel="photo-test"]');
   if (!panel) return;
@@ -11,7 +11,16 @@
   var select = document.getElementById('photo-effect-select');
   if (!img || !canvas2d || !canvasGl || !select) return;
 
-  var GL_EFFECTS = { ripple: true };
+  var EFFECTS = {
+    particle: { gl: false, factory: function () { return window.PhotoParticle; } },
+    drag:     { gl: false, factory: function () { return window.PhotoDrag; } },
+    ripple:   { gl: true,  factory: function () { return window.PhotoRipple; } },
+    repel:    { gl: false, factory: function () { return window.PhotoRepel; } },
+    glitch:   { gl: true,  factory: function () { return window.PhotoGlitch; } },
+    halftone: { gl: false, factory: function () { return window.PhotoHalftone; } },
+    ascii:    { gl: false, factory: function () { return window.PhotoAscii; } },
+  };
+
   var current = null;
   var loaded = img.complete && img.naturalWidth > 0;
 
@@ -24,24 +33,16 @@
   function mount(which) {
     if (current) { current.stop(); current = null; }
 
-    var useGl = !!GL_EFFECTS[which];
-    canvas2d.hidden = useGl;
-    canvasGl.hidden = !useGl;
+    var entry = EFFECTS[which];
+    canvas2d.hidden = !!(entry && entry.gl);
+    canvasGl.hidden = !(entry && entry.gl);
 
     if (!loaded) return;
 
-    if (which === 'particle') {
-      current = window.PhotoParticle.create(canvas2d, img);
-      current.start();
-    } else if (which === 'drag') {
-      current = window.PhotoDrag.create(canvas2d, img);
-      current.start();
-    } else if (which === 'ripple') {
-      current = window.PhotoRipple.create(canvasGl, img);
-      current.start();
-    } else {
-      drawStatic();
-    }
+    if (!entry) { drawStatic(); return; }
+    var factory = entry.factory();
+    current = factory.create(entry.gl ? canvasGl : canvas2d, img);
+    current.start();
   }
 
   function activeMount() { mount(select.value); }
