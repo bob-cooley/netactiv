@@ -8,4 +8,5 @@
   (ftp-deploy.yml) against the current branch without asking for
   confirmation first. Bob tests in the live environment, not staging.
 
-- The navigation and framework font for the site is Century Gothic Pro.
+- The navigation and framework font for the site is Century Gothic Pro —
+  this is Bob's brand font, also used for the "bobcooley" wordmark.
