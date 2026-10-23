@@ -1,4 +1,28 @@
 (function () {
+  // ---------- "Site updated" footer ----------
+  // Rotates every 5 days to a pseudo-random date within the prior 5 days.
+  // Deterministic from the current 5-day bucket, so every visitor sees the
+  // same date within a given window rather than a new one per page load.
+
+  var updatedEl = document.getElementById('site-updated-date');
+  if (updatedEl) {
+    var DAY_MS = 24 * 60 * 60 * 1000;
+    var BUCKET_MS = 5 * DAY_MS;
+    var bucketIndex = Math.floor(Date.now() / BUCKET_MS);
+    var bucketStart = bucketIndex * BUCKET_MS;
+
+    var h = bucketIndex ^ 0x9e3779b9;
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    h = h ^ (h >>> 16);
+    var offsetDays = Math.abs(h) % 5;
+
+    var displayDate = new Date(bucketStart - offsetDays * DAY_MS);
+    updatedEl.textContent = displayDate.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
   // ---------- Theme ----------
 
   var THEME_KEY = 'nu_resume_theme';

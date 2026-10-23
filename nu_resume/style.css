@@ -441,10 +441,24 @@ button, select {
 }
 .bottom-bar .rail-link { flex: 1; text-align: center; padding: 8px 2px; font-size: 9.5px; letter-spacing: 0.03em; }
 
+/* ---------- Site-updated footer ---------- */
+
+.site-footer {
+  position: fixed;
+  left: 16px; bottom: 10px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  opacity: 0.6;
+  z-index: 30;
+  pointer-events: none;
+}
+
 @media (max-width: 860px) {
   html, body { overflow-y: auto; }
   .primary-nav { display: none; }
   .bottom-bar { display: flex; }
+  .site-footer { display: none; }
   .panel { padding: calc(var(--header-h) + 24px) 20px 104px; align-items: flex-start; }
   .panel-inner { padding-top: 8px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
