@@ -19,14 +19,18 @@
 }
 
 /* "Retrofuturish" — eggshell base extended from the teal / sage / gold /
-   terracotta / maroon palette Bob supplied; maroon takes the --accent
-   role, the rest are kept as swatches for future use. */
+   terracotta / maroon palette Bob supplied; the darker teal takes the
+   --accent role. --accent is a darkened version of the uploaded teal
+   (#58ac92 at ~4.5:1 contrast on eggshell, vs ~2.3:1 for the swatch
+   as-is — too low to read as link/label text), kept at --swatch-teal
+   for fills/backgrounds where flat contrast doesn't apply. Remaining
+   swatches stored for future use. */
 :root[data-theme="retrofuturish"] {
   --bg: #f0ead6;
   --panel-bg: #e6dfc5;
   --field-bg: #ece5cd;
-  --accent: #811829;
-  --accent-rgb: 129, 24, 41;
+  --accent: #3a7462;
+  --accent-rgb: 58, 116, 98;
   --text: #2b2620;
   --text-rgb: 43, 38, 32;
   --text-dim: #6e6554;
@@ -36,6 +40,7 @@
   --swatch-sage: #acd3b4;
   --swatch-gold: #e6a93f;
   --swatch-terracotta: #cc4e28;
+  --swatch-maroon: #811829;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
