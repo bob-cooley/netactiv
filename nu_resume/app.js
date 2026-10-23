@@ -1,4 +1,27 @@
 (function () {
+  // ---------- Theme ----------
+
+  var THEME_KEY = 'nu_resume_theme';
+  var themeSelect = document.getElementById('theme-select');
+  var validThemes = { 'dark-sonnet': true };
+
+  function applyTheme(which) {
+    document.documentElement.setAttribute('data-theme', which);
+    if (themeSelect && themeSelect.value !== which) themeSelect.value = which;
+    try { localStorage.setItem(THEME_KEY, which); } catch (e) {}
+  }
+
+  var storedTheme = 'dark-sonnet';
+  try { storedTheme = localStorage.getItem(THEME_KEY) || 'dark-sonnet'; } catch (e) {}
+  applyTheme(validThemes[storedTheme] ? storedTheme : 'dark-sonnet');
+
+  if (themeSelect) {
+    themeSelect.addEventListener('change', function () {
+      applyTheme(themeSelect.value);
+      closeSettings();
+    });
+  }
+
   var GLOBE_KEY = 'nu_resume_globe';
   var canvas = document.getElementById('globe-canvas');
   var hero = document.getElementById('hero');

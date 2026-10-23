@@ -1,3 +1,9 @@
+/* ---------- Themes ----------
+   :root holds the default theme, "A Dark Sonnet" — selectable in
+   Settings via #theme-select, applied as html[data-theme="dark-sonnet"].
+   Additional themes override these tokens under their own
+   :root[data-theme="..."] block. */
+
 :root {
   --bg: #0a0a0f;
   --panel-bg: #131319;
