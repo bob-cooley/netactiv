@@ -16,7 +16,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "century-gothic", Questrial, 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   overflow: hidden;
 }
 
@@ -69,7 +69,7 @@ button, select {
 }
 
 .hero-name {
-  font-family: 'Jost', 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "century-gothic", Questrial, 'Jost', 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-weight: 300;
   font-size: clamp(32px, 5vw, 64px);
   line-height: 1;
