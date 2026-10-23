@@ -17,6 +17,14 @@
     <div class="hero-name" aria-label="Bob Cooley"><span class="hn-bob">bob</span><span class="hn-cooley">cooley</span></div>
 
     <div class="header-actions">
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+        <button class="nav-link nav-link--home is-active" data-view="home" aria-label="Home">*</button>
+        <button class="nav-link" data-view="resume">Resume</button>
+        <button class="nav-link" data-view="case-studies">Case Studies</button>
+        <button class="nav-link" data-view="whitepapers">Whitepapers</button>
+        <button class="nav-link" data-view="contact">Contact</button>
+      </nav>
+
       <div class="download-wrap">
         <button type="button" id="download-btn" class="download-btn" aria-haspopup="true" aria-expanded="false">
           Download Resume <span class="caret">▾</span>
@@ -60,14 +68,6 @@
       </div>
     </div>
   </header>
-
-  <nav id="left-rail" class="left-rail" aria-label="Primary">
-    <button class="rail-link rail-link--home is-active" data-view="home" aria-label="Home">*</button>
-    <button class="rail-link" data-view="resume">Resume</button>
-    <button class="rail-link" data-view="case-studies">Case Studies</button>
-    <button class="rail-link" data-view="whitepapers">Whitepapers</button>
-    <button class="rail-link" data-view="contact">Contact</button>
-  </nav>
 
   <main class="stage">
     <div class="page" id="hero">
