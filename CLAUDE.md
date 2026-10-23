@@ -7,3 +7,5 @@
 - Always deploy after pushing changes — trigger the FTP deploy workflow
   (ftp-deploy.yml) against the current branch without asking for
   confirmation first. Bob tests in the live environment, not staging.
+
+- The navigation and framework font for the site is Century Gothic Pro.
