@@ -75,10 +75,11 @@ button, select {
 
 /* Sized to 80% of the prior clamp(300px,42vw,560px) — width and height
    share one clamp so the circle (R = min(W,H)/2.3 in globe-a.js) shrinks
-   by exactly 20% regardless of which axis binds. Centered on the left
-   quarter line (25% from .page's left edge) and vertically centered in
-   the hero's available height. Leaves room to the right for intro
-   text/KPIs later. */
+   by exactly 20% regardless of which axis binds. On the home view it's
+   centered on the left quarter line (25% from .page's left edge),
+   leaving room to the right for intro text/KPIs later; on every other
+   view (.page.is-receded — it's just a faded backdrop there) it recenters
+   to 50%. Vertically centered in the hero's available height either way. */
 .globe-wrap {
   position: absolute;
   top: 50%;
@@ -86,6 +87,10 @@ button, select {
   transform: translate(-50%, -50%);
   width: clamp(240px, 33.6vw, 448px);
   height: clamp(240px, 33.6vw, 448px);
+  transition: left 0.6s cubic-bezier(.22,.61,.36,1);
+}
+.page.is-receded .globe-wrap {
+  left: 50%;
 }
 #globe-canvas {
   display: block;
