@@ -76,12 +76,13 @@ button, select {
 /* Sized to 80% of the prior clamp(300px,42vw,560px) — width and height
    share one clamp so the circle (R = min(W,H)/2.3 in globe-a.js) shrinks
    by exactly 20% regardless of which axis binds. Centered on the left
-   rule-of-thirds line (33.333% from .page's left edge) and vertically
-   centered in the hero's available height. */
+   quarter line (25% from .page's left edge) and vertically centered in
+   the hero's available height. Leaves room to the right for intro
+   text/KPIs later. */
 .globe-wrap {
   position: absolute;
   top: 50%;
-  left: 33.333%;
+  left: 25%;
   transform: translate(-50%, -50%);
   width: clamp(240px, 33.6vw, 448px);
   height: clamp(240px, 33.6vw, 448px);
