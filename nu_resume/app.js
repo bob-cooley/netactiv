@@ -3,7 +3,7 @@
 
   var THEME_KEY = 'nu_resume_theme';
   var themeSelect = document.getElementById('theme-select');
-  var validThemes = { 'dark-sonnet': true };
+  var validThemes = { 'dark-sonnet': true, 'retrofuturish': true };
 
   function applyTheme(which) {
     document.documentElement.setAttribute('data-theme', which);

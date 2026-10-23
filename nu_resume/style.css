@@ -9,11 +9,33 @@
   --panel-bg: #131319;
   --field-bg: #0c0c11;
   --accent: #990000;
+  --accent-rgb: 153, 0, 0;
   --text: #eaeaef;
+  --text-rgb: 234, 234, 239;
   --text-dim: #8c8c98;
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --header-h: clamp(74px, 10vw, 104px);
+}
+
+/* "Retrofuturish" — eggshell base extended from the teal / sage / gold /
+   terracotta / maroon palette Bob supplied; maroon takes the --accent
+   role, the rest are kept as swatches for future use. */
+:root[data-theme="retrofuturish"] {
+  --bg: #f0ead6;
+  --panel-bg: #e6dfc5;
+  --field-bg: #ece5cd;
+  --accent: #811829;
+  --accent-rgb: 129, 24, 41;
+  --text: #2b2620;
+  --text-rgb: 43, 38, 32;
+  --text-dim: #6e6554;
+  --border: rgba(43, 38, 32, 0.12);
+  --border-strong: rgba(43, 38, 32, 0.22);
+  --swatch-teal: #58ac92;
+  --swatch-sage: #acd3b4;
+  --swatch-gold: #e6a93f;
+  --swatch-terracotta: #cc4e28;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -83,7 +105,7 @@ button, select {
   text-transform: lowercase;
 }
 .hn-bob { color: #858585; }
-.hn-cooley { color: #fff; }
+.hn-cooley { color: var(--text); }
 
 .header-actions { display: flex; align-items: center; gap: 12px; }
 
@@ -92,7 +114,7 @@ button, select {
 .gear-btn {
   width: 36px; height: 36px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--text-rgb),0.06);
   border: 1px solid var(--border-strong);
   color: var(--text-dim);
   font-size: 16px;
@@ -100,7 +122,7 @@ button, select {
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s, color 0.2s, transform 0.3s;
 }
-.gear-btn:hover { color: var(--accent); background: rgba(255,255,255,0.1); }
+.gear-btn:hover { color: var(--accent); background: rgba(var(--text-rgb),0.1); }
 .gear-btn[aria-expanded="true"] { color: var(--accent); transform: rotate(35deg); }
 
 .settings-panel {
@@ -173,8 +195,8 @@ button, select {
   white-space: nowrap;
   transition: color 0.2s, background 0.2s;
 }
-.nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.nav-link.is-active { color: var(--accent); background: rgba(153,0,0,0.12); }
+.nav-link:hover { color: var(--text); background: rgba(var(--text-rgb),0.05); }
+.nav-link.is-active { color: var(--accent); background: rgba(var(--accent-rgb),0.12); }
 .nav-link--home { font-size: 16px; padding: 8px 10px; }
 
 /* ---------- Rail-link base (shared by mobile bottom bar) ---------- */
@@ -194,8 +216,8 @@ button, select {
   white-space: nowrap;
   transition: color 0.2s, background 0.2s;
 }
-.rail-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.rail-link.is-active { color: var(--accent); background: rgba(153,0,0,0.12); }
+.rail-link:hover { color: var(--text); background: rgba(var(--text-rgb),0.05); }
+.rail-link.is-active { color: var(--accent); background: rgba(var(--accent-rgb),0.12); }
 .rail-link--home { text-align: center; font-size: 17px; letter-spacing: 0; }
 
 /* ---------- Content panels ---------- */
@@ -249,8 +271,8 @@ button, select {
 
 .download-wrap { position: relative; flex-shrink: 0; }
 .download-btn {
-  background: rgba(153,0,0,0.1);
-  border: 1px solid rgba(153,0,0,0.4);
+  background: rgba(var(--accent-rgb),0.1);
+  border: 1px solid rgba(var(--accent-rgb),0.4);
   color: var(--accent);
   padding: 10px 16px;
   border-radius: 8px;
@@ -262,7 +284,7 @@ button, select {
   white-space: nowrap;
   transition: background 0.2s, border-color 0.2s;
 }
-.download-btn:hover { background: rgba(153,0,0,0.18); }
+.download-btn:hover { background: rgba(var(--accent-rgb),0.18); }
 .download-btn .caret { font-size: 10px; margin-left: 2px; }
 .download-menu {
   position: absolute;
@@ -286,7 +308,7 @@ button, select {
   text-decoration: none;
   transition: background 0.2s, color 0.2s;
 }
-.download-menu a:hover { background: rgba(153,0,0,0.12); color: var(--accent); }
+.download-menu a:hover { background: rgba(var(--accent-rgb),0.12); color: var(--accent); }
 
 .summary-lede { font-size: 15px; line-height: 1.6; color: var(--text-dim); margin-top: 20px; max-width: 640px; }
 
@@ -382,7 +404,7 @@ button, select {
   gap: 18px;
   margin-top: 24px;
 }
-.case-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.case-card { background: rgba(var(--text-rgb),0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .case-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .case-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
 .case-metric { font-size: 12px; font-weight: 600; color: var(--accent); }
