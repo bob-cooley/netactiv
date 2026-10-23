@@ -25,13 +25,40 @@ window.GlobeA = (function () {
     const COUNT_MULT     = 2.0;
 
     const NODE_TYPES = [
-      { id: 'relay',    rgb: [0,   255, 218], weight: 0.42, glowScale: 1.00, pulseSpeed: 1.00 },
-      { id: 'hub',      rgb: [255, 178,   0], weight: 0.15, glowScale: 1.70, pulseSpeed: 0.55 },
-      { id: 'gateway',  rgb: [195,  45, 255], weight: 0.16, glowScale: 1.20, pulseSpeed: 1.35 },
-      { id: 'core',     rgb: [255, 255, 255], weight: 0.11, glowScale: 2.00, pulseSpeed: 0.38 },
-      { id: 'transfer', rgb: [ 48, 255,  90], weight: 0.16, glowScale: 1.10, pulseSpeed: 1.70 },
+      { id: 'relay',    weight: 0.42, glowScale: 1.00, pulseSpeed: 1.00 },
+      { id: 'hub',      weight: 0.15, glowScale: 1.70, pulseSpeed: 0.55 },
+      { id: 'gateway',  weight: 0.16, glowScale: 1.20, pulseSpeed: 1.35 },
+      { id: 'core',     weight: 0.11, glowScale: 2.00, pulseSpeed: 0.38 },
+      { id: 'transfer', weight: 0.16, glowScale: 1.10, pulseSpeed: 1.70 },
     ];
     const TYPE_PRIORITY = { core: 5, hub: 4, gateway: 3, transfer: 2, relay: 1 };
+
+    // Color palettes — "A Dark Sonnet" keeps the original blue/cyan network
+    // look untouched. "Retrofuturish" maps the five node types onto the
+    // five swatches from Bob's uploaded palette (teal/gold/terracotta/
+    // maroon/sage), and recolors the wireframe/rim to the same teal used
+    // as that theme's --accent. Looked up fresh each render() call so a
+    // theme switch while the globe is mounted recolors it immediately.
+    const PALETTES = {
+      'dark-sonnet': {
+        wireBack: [0, 175, 255], wireBackA: 0.06,
+        wireFront: [0, 210, 255], wireFrontA: 0.28,
+        axis: [0, 160, 220], axisA: 0.18,
+        rim: [[0, 170, 255, 0.12], [0, 120, 220, 0.05], [0, 70, 180, 0]],
+        nodeRgb: { relay: [0, 255, 218], hub: [255, 178, 0], gateway: [195, 45, 255], core: [255, 255, 255], transfer: [48, 255, 90] },
+      },
+      'retrofuturish': {
+        wireBack: [88, 172, 146], wireBackA: 0.06,
+        wireFront: [88, 172, 146], wireFrontA: 0.28,
+        axis: [88, 172, 146], axisA: 0.18,
+        rim: [[88, 172, 146, 0.12], [88, 172, 146, 0.05], [88, 172, 146, 0]],
+        nodeRgb: { relay: [88, 172, 146], hub: [230, 169, 63], gateway: [204, 78, 40], core: [129, 24, 41], transfer: [172, 211, 180] },
+      },
+    };
+    function palette() {
+      return PALETTES[document.documentElement.getAttribute('data-theme')] || PALETTES['dark-sonnet'];
+    }
+    function typeRGB(typeId) { return palette().nodeRgb[typeId]; }
 
     function pickType() {
       let r = Math.random(), acc = 0;
@@ -111,7 +138,7 @@ window.GlobeA = (function () {
           if (tooParallel(ax, edgeAxes, MAX_PARALLEL)) continue;
           used.add(k); edgeAxes.push(ax);
           const dom = TYPE_PRIORITY[nodes[h].type.id] >= TYPE_PRIORITY[nodes[b].type.id] ? nodes[h].type : nodes[b].type;
-          edges.push({ a: h, b, rgb: dom.rgb });
+          edges.push({ a: h, b, typeId: dom.id });
           got++;
         }
       });
@@ -126,7 +153,7 @@ window.GlobeA = (function () {
         if (tooParallel(ax, edgeAxes, MAX_PARALLEL)) continue;
         edgeAxes.push(ax); used.add(k);
         const dom = TYPE_PRIORITY[nodes[a].type.id] >= TYPE_PRIORITY[nodes[b].type.id] ? nodes[a].type : nodes[b].type;
-        edges.push({ a, b, rgb: dom.rgb });
+        edges.push({ a, b, typeId: dom.id });
       }
 
       const SLOW_CAP = 4, SLOW_FLOOR_RAW = 0.0002 + 0.003 * 0.20;
@@ -147,6 +174,7 @@ window.GlobeA = (function () {
       const dt = lastTS ? Math.min(ts - lastTS, 50) : 16;
       lastTS = ts;
       Rdraw = R;
+      const pal = palette();
 
       if (!isDrag) {
         rotM = mm(mrx(velX * dt), rotM);
@@ -177,7 +205,7 @@ window.GlobeA = (function () {
           if (p0[2] <= 0 && p1[2] <= 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
         }
       }
-      ctx.strokeStyle = 'rgba(0, 175, 255, 0.06)';
+      ctx.strokeStyle = `rgba(${pal.wireBack[0]}, ${pal.wireBack[1]}, ${pal.wireBack[2]}, ${pal.wireBackA})`;
       ctx.lineWidth = 0.4;
       ctx.stroke();
 
@@ -199,7 +227,7 @@ window.GlobeA = (function () {
           if (p0[2] > 0 && p1[2] > 0) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
         }
       }
-      ctx.strokeStyle = 'rgba(0, 210, 255, 0.28)';
+      ctx.strokeStyle = `rgba(${pal.wireFront[0]}, ${pal.wireFront[1]}, ${pal.wireFront[2]}, ${pal.wireFrontA})`;
       ctx.lineWidth = 0.65;
       ctx.stroke();
 
@@ -210,13 +238,14 @@ window.GlobeA = (function () {
       ctx.beginPath();
       ctx.moveTo(cx + (nPole[0] - cx) * 1.18, cy + (nPole[1] - cy) * 1.18);
       ctx.lineTo(cx + (sPole[0] - cx) * 1.18, cy + (sPole[1] - cy) * 1.18);
-      ctx.strokeStyle = 'rgba(0, 160, 220, 0.18)';
+      ctx.strokeStyle = `rgba(${pal.axis[0]}, ${pal.axis[1]}, ${pal.axis[2]}, ${pal.axisA})`;
       ctx.lineWidth = 0.7;
       ctx.stroke();
       ctx.setLineDash([]);
 
       // Edges
-      edges.forEach(({ a, b, rgb: [er, eg, eb] }) => {
+      edges.forEach(({ a, b, typeId }) => {
+        const [er, eg, eb] = pal.nodeRgb[typeId];
         let prev = null;
         for (let j = 0; j <= ESEGS; j++) {
           const sp = slerp(nodes[a].pos, nodes[b].pos, j / ESEGS);
@@ -243,7 +272,7 @@ window.GlobeA = (function () {
         const vis   = rp[2] > 0 ? 0.40 + rp[2] * 0.60 : 0;
         const a     = Math.min(0.98, vis * (0.55 + 0.45 * pulse));
         const gr    = Rdraw * nd.type.glowScale * (0.018 + 0.010 * pulse);
-        const [nr, ng, nb] = nd.type.rgb;
+        const [nr, ng, nb] = pal.nodeRgb[nd.type.id];
         const g     = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], gr);
         g.addColorStop(0,   `rgba(${nr},${ng},${nb},${a * 0.92})`);
         g.addColorStop(0.5, `rgba(${nr},${ng},${nb},${a * 0.28})`);
@@ -268,7 +297,7 @@ window.GlobeA = (function () {
         if (rp[2] < 0) return;
         const a  = 0.45 + rp[2] * 0.55;
         const pr = Rdraw * 0.014;
-        const [er, eg, eb] = edge.rgb;
+        const [er, eg, eb] = pal.nodeRgb[edge.typeId];
         const g  = ctx.createRadialGradient(rp[0], rp[1], 0, rp[0], rp[1], pr);
         g.addColorStop(0,   `rgba(255,255,255,${a})`);
         g.addColorStop(0.4, `rgba(${er},${eg},${eb},${a * 0.70})`);
@@ -281,9 +310,9 @@ window.GlobeA = (function () {
 
       // Rim glow
       const rim = ctx.createRadialGradient(cx, cy, Rdraw * 0.88, cx, cy, Rdraw * 1.18);
-      rim.addColorStop(0,    'rgba(0, 170, 255, 0.12)');
-      rim.addColorStop(0.55, 'rgba(0, 120, 220, 0.05)');
-      rim.addColorStop(1,    'rgba(0, 70, 180, 0)');
+      rim.addColorStop(0,    `rgba(${pal.rim[0][0]}, ${pal.rim[0][1]}, ${pal.rim[0][2]}, ${pal.rim[0][3]})`);
+      rim.addColorStop(0.55, `rgba(${pal.rim[1][0]}, ${pal.rim[1][1]}, ${pal.rim[1][2]}, ${pal.rim[1][3]})`);
+      rim.addColorStop(1,    `rgba(${pal.rim[2][0]}, ${pal.rim[2][1]}, ${pal.rim[2][2]}, ${pal.rim[2][3]})`);
       ctx.beginPath();
       ctx.arc(cx, cy, Rdraw * 1.18, 0, Math.PI * 2);
       ctx.fillStyle = rim;
