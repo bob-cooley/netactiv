@@ -264,8 +264,9 @@
     H = canvas.height = Math.round(rect.height);
     R = H * 0.148;
     Rdraw = R;
-    cx = W * 0.850;
-    cy = H * 0.762;
+    const margin = 75;
+    cx = W - R - margin;
+    cy = H - R - margin;
     dragSens = Math.PI / (2 * R);
     canvas.style.cursor = 'pointer';
   }
