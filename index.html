@@ -119,10 +119,36 @@
       letter-spacing: 0.03em;
     }
 
+    /* Nav: absolute top-right */
+    .site-nav {
+      position: absolute;
+      top: 52px;
+      right: 75px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .site-nav a {
+      color: rgb(220,30,130);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .site-nav a:hover { color: #ffffff; }
+    .site-nav .sep {
+      color: rgb(220,30,130);
+      padding: 0 10px;
+      user-select: none;
+    }
+
     @media (max-width: 600px) {
       .logo { top: 28px; left: 24px; }
       .logo img { width: clamp(200px, 55vw, 320px); }
       footer { left: 24px; bottom: 40px; }
+      .site-nav { display: none; }
     }
   </style>
 </head>
@@ -132,6 +158,12 @@
     <div class="logo">
       <img src="art/2026-logo_longw-tag.png" alt="netActiv">
     </div>
+    <nav class="site-nav">
+      <a href="#">About</a><span class="sep">\</span>
+      <a href="#">Philosophy</a><span class="sep">\</span>
+      <a href="#">Case Studies</a><span class="sep">\</span>
+      <a href="#">Contact</a>
+    </nav>
     <div class="globe-wrap">
       <canvas id="home-globe"></canvas>
       <div id="glitch-text" data-text="transmission arrival pending">transmission arrival pending</div>
