@@ -613,10 +613,10 @@
   const mctx = measureCanvas.getContext('2d');
 
   function wrapText(text, maxW) {
-    // Strip the css font string to something canvas understands
     const fontFace = cfg.font.replace(/'/g, '').split(',')[0].trim();
     mctx.font = `${cfg.size}px ${fontFace}`;
-    const spaceW = mctx.measureText(' ').width + cfg.ls;
+    // Gap matches CSS `gap: 0.28em` on .b-line
+    const gapW = 0.28 * cfg.size;
 
     const rawLines = text.replace(/\r\n/g, '\n').split('\n');
     const lines = [];
@@ -630,7 +630,7 @@
 
       for (const word of words) {
         const ww = mctx.measureText(word).width + word.length * cfg.ls;
-        const needed = cur.length ? curW + spaceW + ww : ww;
+        const needed = cur.length ? curW + gapW + ww : ww;
         if (needed > maxW && cur.length) {
           lines.push(cur);
           cur  = [word];
@@ -646,7 +646,10 @@
   }
 
   // ── Build stream events ────────────────────────────────────────────────────
-  // Each event: {type:'line', el} | {type:'show', el} | {type:'text', el, t}
+  // Events: {type:'line', el}
+  //         {type:'show', el, parent}   — word appended + faded in
+  //         {type:'append', el, parent} — word appended immediately (letter mode)
+  //         {type:'text',  el, t}       — update text content
 
   function buildStream(lines) {
     const events = [];
@@ -665,33 +668,28 @@
 
       events.push({ type: 'line', el: lineEl });
 
-      if (!words.length) return; // empty / blank line
+      if (!words.length) return;
 
       if (cfg.by === 'sentence') {
-        // Whole line appears at once
         const span = document.createElement('span');
         span.className = 'b-word';
         span.textContent = words.join(' ');
-        lineEl.appendChild(span);
-        events.push({ type: 'show', el: span });
+        events.push({ type: 'show', el: span, parent: lineEl });
 
       } else if (cfg.by === 'word') {
         words.forEach(word => {
           const span = document.createElement('span');
           span.className = 'b-word';
           span.textContent = word;
-          lineEl.appendChild(span);
-          events.push({ type: 'show', el: span });
+          events.push({ type: 'show', el: span, parent: lineEl });
         });
 
-      } else { // letter
-        // Each word is a flex item (for RTL row-reverse positioning)
-        // Letters build up inside each word span
+      } else { // letter — words appended one at a time, letters build inside
         words.forEach(word => {
           const wspan = document.createElement('span');
-          wspan.className = 'b-word on'; // always visible; text builds inside
+          wspan.className = 'b-word on';
           wspan.textContent = '';
-          lineEl.appendChild(wspan);
+          events.push({ type: 'append', el: wspan, parent: lineEl });
           for (let ci = 1; ci <= word.length; ci++) {
             events.push({ type: 'text', el: wspan, t: word.slice(0, ci) });
           }
@@ -743,10 +741,15 @@
           stageInner.innerHTML = '';
           stageInner.style.transform = 'translateY(0)';
           scrollY = 0;
-          // reset 'on' classes; rebuild from same events array
+          // Clear dynamically-appended children from each lineEl, reset state
           events.forEach(ev => {
-            if (ev.type === 'show') ev.el.className = 'b-word';
-            if (ev.type === 'text') ev.el.textContent = '';
+            if (ev.type === 'line') {
+              while (ev.el.firstChild) ev.el.removeChild(ev.el.firstChild);
+            } else if (ev.type === 'show') {
+              ev.el.classList.remove('on');
+            } else if (ev.type === 'text') {
+              ev.el.textContent = '';
+            }
           });
           evIdx = 0;
           tick();
@@ -760,10 +763,17 @@
     if (ev.type === 'line') {
       stageInner.appendChild(ev.el);
       autoScroll();
-      tick(); // lines append immediately, no delay
+      tick(); // immediate
+      return;
+    }
+    if (ev.type === 'append') {
+      ev.parent.appendChild(ev.el);
+      autoScroll();
+      tick(); // immediate
       return;
     }
     if (ev.type === 'show') {
+      ev.parent.appendChild(ev.el); // dynamic append at stream time
       ev.el.classList.add('on');
       autoScroll();
     }
