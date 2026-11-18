@@ -33,6 +33,30 @@ jobs:
           );
           PHP
 
+      - name: Build private QRCodifier configuration
+        env:
+          QRCODIFIER_PASSWORD: ${{ secrets.QRCODIFIER_PASSWORD }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+        run: |
+          mkdir -p .deploy-qrcodifier
+          php <<'PHP'
+          <?php
+          $password = (string) getenv('QRCODIFIER_PASSWORD');
+          $site = (string) getenv('TURNSTILE_SITE_KEY');
+          $secret = (string) getenv('TURNSTILE_SECRET_KEY');
+          if ($password === '' || $site === '' || $secret === '') {
+              echo "::warning::QRCodifier secrets missing; login stays disabled until QRCODIFIER_PASSWORD, TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set.\n";
+          }
+          $config = [
+              'password_hash' => $password === '' ? '' : password_hash($password, PASSWORD_DEFAULT),
+              'turnstile_site' => $site,
+              'turnstile_secret' => $secret,
+          ];
+          file_put_contents('.deploy-qrcodifier/config.php', "<?php\nreturn " . var_export($config, true) . ";\n");
+          file_put_contents('.deploy-qrcodifier/.htaccess', "Require all denied\n");
+          PHP
+
       - name: Upload public site to FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -52,6 +76,8 @@ jobs:
             .deploy-private/**
             menagerie-data/**
             .deploy-cutethulhu/**
+            .deploy-qrcodifier/**
+            qrcodifier-data/**
 
       - name: Upload private Menagerie configuration
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -62,4 +88,15 @@ jobs:
           port: 21
           local-dir: ./.deploy-private/
           server-dir: public_html/netactiv/menagerie-data/
+          log-level: standard
+
+      - name: Upload private QRCodifier configuration
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          port: 21
+          local-dir: ./.deploy-qrcodifier/
+          server-dir: public_html/netactiv/qrcodifier-data/config/
           log-level: standard
