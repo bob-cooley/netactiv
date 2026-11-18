@@ -237,6 +237,22 @@ const SOMA_VERT = /* glsl */`
   }
 `;
 
+const MEMBRANE_VERT = /* glsl */`
+  attribute float aLobe;
+  varying vec3 vN;
+  varying vec3 vV;
+  varying vec3 vObj;
+  varying float vLobe;
+  void main() {
+    vObj = position;
+    vLobe = aLobe;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vV = mv.xyz;
+    vN = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
 // Cell membrane: dark translucent interior, crisp mottled violet edge.
 function makeSomaMat(grainScale) {
   return new THREE.ShaderMaterial({
@@ -249,13 +265,14 @@ function makeSomaMat(grainScale) {
       uGlow: { value: 1 },
       uGrain: { value: grainScale },
     },
-    vertexShader: SOMA_VERT,
+    vertexShader: MEMBRANE_VERT,
     fragmentShader: GLSL_NOISE + /* glsl */`
       uniform float uFog, uFlash, uGlow, uDofFar, uGrain;
       uniform vec3 uRim, uEdge;
       varying vec3 vN;
       varying vec3 vV;
       varying vec3 vObj;
+      varying float vLobe;
       void main() {
         float depth = -vV.z;
         vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
@@ -264,6 +281,10 @@ function makeSomaMat(grainScale) {
         // tight rim = defined membrane outline; broad rim = body volume
         float rimTight = pow(edge, 2.6);
         float rimBroad = pow(edge, 1.4);
+        // dissolve the outline where a dendrite leaves the cell
+        float exitFade = 1.0 - smoothstep(0.25, 0.8, vLobe);
+        rimTight *= exitFade;
+        rimBroad *= mix(0.3, 1.0, exitFade);
         // granular cytoplasm / membrane texture
         vec3 q = vObj * uGrain;
         float grain = vnoise(q * 3.0) * 0.6 + vnoise(q * 9.0) * 0.4;
@@ -481,6 +502,7 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
 function buildSomaGeometry(radius, dirs) {
   const g = new THREE.IcosahedronGeometry(1, 4);
   const pos = g.attributes.position;
+  const lobe = new Float32Array(pos.count);
   const v = new THREE.Vector3();
   const off = rr(0, 100);
   for (let i = 0; i < pos.count; i++) {
@@ -488,13 +510,17 @@ function buildSomaGeometry(radius, dirs) {
     let s = radius * (0.9 + 0.2 * noise3(v.x * 2.6 + off, v.y * 2.6, v.z * 2.6)
                     + 0.02 * noise3(v.x * 9 + off, v.y * 9, v.z * 9));
     // pull the membrane out toward each primary dendrite: pyramidal / stellate shape
+    let w = 0;
     for (const d of dirs) {
       const k = Math.max(v.dot(d), 0);
       s += radius * 1.25 * Math.pow(k, 4);
+      w = Math.max(w, Math.pow(k, 8));
     }
+    lobe[i] = w;
     pos.setXYZ(i, v.x * s, v.y * s, v.z * s);
   }
   g.computeVertexNormals();
+  g.setAttribute('aLobe', new THREE.BufferAttribute(lobe, 1));
   return g;
 }
 
