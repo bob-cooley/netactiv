@@ -146,6 +146,8 @@ const fibreMat = new THREE.ShaderMaterial({
     attribute float aSeed;
     attribute float aTint;
     attribute float aRad;
+    attribute float aFade;
+    varying float vFade;
     varying vec3 vN;
     varying vec3 vV;
     varying float vAlong;
@@ -160,6 +162,7 @@ const fibreMat = new THREE.ShaderMaterial({
       vSeed = aSeed;
       vTint = aTint;
       vRad = aRad;
+      vFade = aFade;
       gl_Position = projectionMatrix * mv;
     }
   `,
@@ -172,6 +175,7 @@ const fibreMat = new THREE.ShaderMaterial({
     varying float vSeed;
     varying float vTint;
     varying float vRad;
+    varying float vFade;
     void main() {
       float depth = -vV.z;
       vec3 V = normalize(-vV);
@@ -200,7 +204,7 @@ const fibreMat = new THREE.ShaderMaterial({
       float nearFade = smoothstep(0.35, 3.0, depth);
       // roots (aAlong < 0) fade out inside the soma so the join blends
       float rootFade = smoothstep(-0.9, 0.1, vAlong);
-      float vis = fog * nearFade * rootFade;
+      float vis = fog * nearFade * rootFade * vFade;
       float dA = (1.0 - clamp(depth / uDofFar, 0.0, 1.0)) * step(0.12, vis);
       gl_FragColor = vec4(col * uIntensity * vis, dA);
     }
@@ -411,10 +415,10 @@ const pointMat = new THREE.ShaderMaterial({
 // Accumulates many polylines into one merged BufferGeometry.
 class TubeBatch {
   constructor() {
-    this.pos = []; this.nor = []; this.along = []; this.seed = []; this.tint = []; this.rad = []; this.idx = [];
+    this.pos = []; this.nor = []; this.along = []; this.seed = []; this.tint = []; this.rad = []; this.fade = []; this.idx = [];
     this.vcount = 0;
   }
-  add(points, radii, alongs, seed, tint) {
+  add(points, radii, alongs, seed, tint, fades = null) {
     const n = points.length;
     if (n < 2) return;
     const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), tmp = new THREE.Vector3();
@@ -442,6 +446,7 @@ class TubeBatch {
         this.seed.push(seed);
         this.tint.push(tint);
         this.rad.push(r);
+        this.fade.push(fades ? fades[i] : 1);
       }
     }
     for (let i = 0; i < n - 1; i++) {
@@ -462,6 +467,7 @@ class TubeBatch {
     g.setAttribute('aSeed', new THREE.Float32BufferAttribute(this.seed, 1));
     g.setAttribute('aTint', new THREE.Float32BufferAttribute(this.tint, 1));
     g.setAttribute('aRad', new THREE.Float32BufferAttribute(this.rad, 1));
+    g.setAttribute('aFade', new THREE.Float32BufferAttribute(this.fade, 1));
     g.setIndex(this.vcount > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
     g.computeBoundingSphere();
     return g;
@@ -470,15 +476,22 @@ class TubeBatch {
 
 // ── Neuron growth ───────────────────────────────────────────────────────────
 // Random-walk dendrites with stochastic branching and taper.
-function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tint) {
+// parentR / parentDir are set for side branches: the child then starts at the
+// parent's thickness and heading, eases to its own radius and direction over the
+// first few segments, and fades in, so the fork grows out of the parent instead
+// of showing a flat tube end inside it.
+function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tint, parentR = 0, parentDir = null) {
   const pts = [start.clone()], rads = [radius], als = [along];
-  const p = start.clone(), d = dir.clone();
+  const p = start.clone();
+  const target = dir.clone();
+  const d = parentDir ? parentDir.clone().lerp(dir, 0.35).normalize() : dir.clone();
   const segLen = 0.42 + depth * 0.06;
   const steps = Math.floor(rr(14, 34) * (1 - depth * 0.12));
   const jitter = new THREE.Vector3();
   const curl = randUnit().multiplyScalar(0.08); // slow consistent bend
   let r = radius, a = along;
   for (let i = 1; i <= steps; i++) {
+    if (parentDir && i <= 5) d.lerp(target, 0.3).normalize();
     d.addScaledVector(randUnit(jitter), 0.28).add(curl).normalize();
     p.addScaledVector(d, segLen);
     r = Math.max(r * 0.955, 0.02);
@@ -487,7 +500,7 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
 
     if (depth < 5 && i > 3 && rand() < 0.075 + depth * 0.01) {
       const nd = d.clone().addScaledVector(randUnit(jitter), 0.95).normalize();
-      growBranch(batch, synapses, p, nd, r * rr(0.6, 0.85), depth + 1, a, seed, tint);
+      growBranch(batch, synapses, p, nd, r * rr(0.6, 0.85), depth + 1, a, seed, tint, r, d);
     }
     // dendritic spines / boutons
     if (rand() < 0.035) synapses.push({ p: p.clone(), kind: 0 });
@@ -495,7 +508,17 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
   // taper the last few samples to a point
   const k = Math.min(4, rads.length - 1);
   for (let j = 0; j < k; j++) rads[rads.length - 1 - j] *= (j + 1) / (k + 1);
-  batch.add(pts, rads, als, seed, tint);
+  let fades = null;
+  if (parentR > 0) {
+    const K = Math.min(5, rads.length - 1);
+    fades = rads.map(() => 1);
+    for (let j = 0; j <= K; j++) {
+      const t = j / K, e = t * t * (3 - 2 * t);
+      rads[j] = parentR * 0.92 + (rads[j] - parentR * 0.92) * e;
+      fades[j] = Math.min(1, j / 3) ** 1.5;
+    }
+  }
+  batch.add(pts, rads, als, seed, tint, fades);
   if (rand() < 0.45) synapses.push({ p: p.clone(), kind: 1 }); // terminal bouton
 }
 
@@ -678,7 +701,7 @@ function growAxon(batch, synapses, start, dir, radius, seed, tint) {
     p.addScaledVector(d, 0.6);
     a += 0.6;
     pts.push(p.clone()); rads.push(Math.max(radius * (1 - i / steps * 0.5), 0.015)); als.push(a);
-    if (i > 20 && rand() < 0.03) growBranch(batch, synapses, p, d.clone().addScaledVector(randUnit(j), 0.9).normalize(), radius * 0.5, 3, a, seed, tint);
+    if (i > 20 && rand() < 0.03) growBranch(batch, synapses, p, d.clone().addScaledVector(randUnit(j), 0.9).normalize(), radius * 0.5, 3, a, seed, tint, rads[rads.length - 1], d);
   }
   batch.add(pts, rads, als, seed, tint);
 }
