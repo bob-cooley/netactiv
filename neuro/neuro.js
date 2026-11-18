@@ -24,7 +24,13 @@ const CFG = {
   speed: REDUCED ? 0.25 : parseFloat(params.get('speed') || '2.4'),
   fogDensity: 0.026,
   pulseSpeed: 7.0,              // units / second along a dendrite
-  pulseSpacing: 46.0,           // distance between successive pulses
+  pulseSpacing: 46.0,           // ambient pulses on passing fibres only
+  spontaneousEvery: 14,         // mean seconds between a neuron firing on its own
+  refractory: 3.0,              // seconds a neuron ignores input after firing
+  transmitP: 0.34,              // chance a pulse crosses a junction (kept subcritical)
+  maxTargets: 3,                // outgoing junctions per neuron
+  junctionReach: 4.5,           // branch must pass this close to a soma to connect
+  synapticDelay: 0.14,
   dpr: Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.25 : 1.75),
   bloom: { strength: 0.95, radius: 0.6, threshold: 0.14 },
   dof: params.get('dof') !== '0',
@@ -131,6 +137,13 @@ const DEPTH_ADDITIVE = {
   blendDstAlpha: THREE.OneFactor,
 };
 
+// ── Firing state: last 4 fire times per neuron, read by the fibre shader ────
+const FIRE_W = 256;
+const fireData = new Float32Array(FIRE_W * 4).fill(-1000);
+const fireTex = new THREE.DataTexture(fireData, FIRE_W, 1, THREE.RGBAFormat, THREE.FloatType);
+fireTex.minFilter = fireTex.magFilter = THREE.NearestFilter;
+fireTex.needsUpdate = true;
+
 // ── Fibre material (dendrites, axons) ───────────────────────────────────────
 const fibreMat = new THREE.ShaderMaterial({
   uniforms: {
@@ -140,6 +153,7 @@ const fibreMat = new THREE.ShaderMaterial({
     uPale: { value: PALETTE.fibrePale },
     uPulse: { value: PALETTE.pulse },
     uIntensity: { value: 0.32 },
+    uFire: { value: fireTex },
   },
   vertexShader: /* glsl */`
     attribute float aAlong;
@@ -147,7 +161,11 @@ const fibreMat = new THREE.ShaderMaterial({
     attribute float aTint;
     attribute float aRad;
     attribute float aFade;
+    attribute float aNeuron;
+    uniform sampler2D uFire;
     varying float vFade;
+    varying vec4 vFire;
+    varying float vNeuron;
     varying vec3 vN;
     varying vec3 vV;
     varying float vAlong;
@@ -163,6 +181,10 @@ const fibreMat = new THREE.ShaderMaterial({
       vTint = aTint;
       vRad = aRad;
       vFade = aFade;
+      vNeuron = aNeuron;
+      vFire = aNeuron >= 0.0
+        ? texture2D(uFire, vec2((mod(aNeuron, 256.0) + 0.5) / 256.0, 0.5))
+        : vec4(-1000.0);
       gl_Position = projectionMatrix * mv;
     }
   `,
@@ -176,6 +198,15 @@ const fibreMat = new THREE.ShaderMaterial({
     varying float vTint;
     varying float vRad;
     varying float vFade;
+    varying vec4 vFire;
+    varying float vNeuron;
+    float front(float ft) {
+      // pulse front leaves the soma at fire time ft and runs outward along the arbor
+      float age = uTime - ft;
+      float d = vAlong - age * uPulseSpeed;       // >0 ahead of the front, <0 behind
+      float on = step(0.0, age) * step(age, 14.0);
+      return on * (exp(-d * d * 1.6) * 1.8 + exp(min(d, 0.0) * 0.35) * step(d, 0.0) * step(-4.0, d) * 0.12);
+    }
     void main() {
       float depth = -vV.z;
       vec3 V = normalize(-vV);
@@ -191,13 +222,19 @@ const fibreMat = new THREE.ShaderMaterial({
       // hair-thin fibres stay visible: lift them a touch
       col *= 0.8 + 0.35 * smoothstep(0.1, 0.0, vRad);
 
-      // travelling action potential (only on "active" trees)
-      float firing = step(0.42, fract(vSeed * 13.17));
-      float ph = fract((vAlong - uTime * uPulseSpeed) / uPulseSpacing + vSeed);
-      float d = (ph - 0.5) * uPulseSpacing;
-      float pulse = exp(-d * d * 1.6) * firing;
-      float trail = exp(-max(d, 0.0) * 0.35) * step(0.0, d) * step(d, 4.0) * firing * 0.12;
-      col += uPulse * (pulse * 1.8 + trail) * (0.6 + 0.6 * facing);
+      // action potentials
+      float sig;
+      if (vNeuron >= 0.0) {
+        // event-driven: up to four pulses in flight per neuron
+        sig = front(vFire.x) + front(vFire.y) + front(vFire.z) + front(vFire.w);
+      } else {
+        // passing fibres from off-screen neurons: sparse ambient pulses
+        float firing = step(0.6, fract(vSeed * 13.17));
+        float ph = fract((vAlong - uTime * uPulseSpeed) / uPulseSpacing + vSeed);
+        float d = (ph - 0.5) * uPulseSpacing;
+        sig = exp(-d * d * 1.6) * firing * 1.2;
+      }
+      col += uPulse * sig * (0.6 + 0.6 * facing);
 
       float fog = exp(-depth * uFog);
       // with depth-of-field, close fibres melt into soft light instead of vanishing
@@ -415,7 +452,8 @@ const pointMat = new THREE.ShaderMaterial({
 // Accumulates many polylines into one merged BufferGeometry.
 class TubeBatch {
   constructor() {
-    this.pos = []; this.nor = []; this.along = []; this.seed = []; this.tint = []; this.rad = []; this.fade = []; this.idx = [];
+    this.pos = []; this.nor = []; this.along = []; this.seed = []; this.tint = []; this.rad = []; this.fade = []; this.nid = []; this.idx = [];
+    this.curNid = -1; // neuron id stamped on tubes added while set
     this.vcount = 0;
   }
   add(points, radii, alongs, seed, tint, fades = null) {
@@ -447,6 +485,7 @@ class TubeBatch {
         this.tint.push(tint);
         this.rad.push(r);
         this.fade.push(fades ? fades[i] : 1);
+        this.nid.push(this.curNid);
       }
     }
     for (let i = 0; i < n - 1; i++) {
@@ -468,6 +507,7 @@ class TubeBatch {
     g.setAttribute('aTint', new THREE.Float32BufferAttribute(this.tint, 1));
     g.setAttribute('aRad', new THREE.Float32BufferAttribute(this.rad, 1));
     g.setAttribute('aFade', new THREE.Float32BufferAttribute(this.fade, 1));
+    g.setAttribute('aNeuron', new THREE.Float32BufferAttribute(this.nid, 1));
     g.setIndex(this.vcount > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
     g.computeBoundingSphere();
     return g;
@@ -497,6 +537,7 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
     r = Math.max(r * 0.955, 0.02);
     a += segLen;
     pts.push(p.clone()); rads.push(r); als.push(a);
+    if (ARBOR && (i & 1)) ARBOR.push(p.x, p.y, p.z, a);
 
     if (depth < 5 && i > 3 && rand() < 0.075 + depth * 0.01) {
       const nd = d.clone().addScaledVector(randUnit(jitter), 0.95).normalize();
@@ -550,6 +591,9 @@ function buildSomaGeometry(radius, dirs) {
 // ── Chunk generation ────────────────────────────────────────────────────────
 const chunks = new Map(); // index -> { group, somas: [] }
 const nucleusGeo = new THREE.IcosahedronGeometry(1, 3);
+let ARBOR = null;            // while growing a neuron: flat [x, y, z, along, ...] samples
+let nextNeuronId = 0;
+const neurons = new Map();   // id -> soma record (live chunks only)
 const fibreGeoms = [];
 
 function generateChunk(k) {
@@ -576,6 +620,9 @@ function generateChunk(k) {
     const somaR = rr(0.4, 0.75);
     const nPrim = ri(5, 9);
     const dirs = [];
+    const nid = nextNeuronId++;
+    batch.curNid = nid;
+    ARBOR = [];
     // one dominant apical direction + scattered basal dendrites
     const apical = randUnit();
     for (let i = 0; i < nPrim; i++) {
@@ -593,6 +640,9 @@ function generateChunk(k) {
     const axDir = apical.clone().negate().addScaledVector(randUnit(), 0.4).normalize();
     addRoot(batch, centre, axDir, somaR, somaR * 1.4, somaR * 0.12, seed, tint);
     growAxon(batch, synapses, centre.clone().addScaledVector(axDir, somaR * 1.4), axDir, somaR * 0.12, seed, tint);
+    const arbor = new Float32Array(ARBOR);
+    ARBOR = null;
+    batch.curNid = -1;
 
     const soma = new THREE.Mesh(buildSomaGeometry(somaR, dirs), makeSomaMat(1.0 / somaR));
     soma.position.copy(centre);
@@ -615,7 +665,15 @@ function generateChunk(k) {
     halo.position.copy(centre);
     group.add(halo);
 
-    somas.push({ mesh: soma, nucleus, halo, seed, active: fract(seed * 13.17) >= 0.42, baseHalo: halo.scale.x, phase: rand() * 10 });
+    const rec = {
+      id: nid, mesh: soma, nucleus, halo, seed, centre, arbor, out: [],
+      fires: [-1000, -1000, -1000, -1000], slot: 0, lastFire: -1000,
+      baseHalo: halo.scale.x, phase: rand() * 10,
+    };
+    const base = (nid % FIRE_W) * 4;
+    fireData.fill(-1000, base, base + 4);
+    fireTex.needsUpdate = true;
+    somas.push(rec);
   }
 
   // passing fibres from neurons outside the tunnel: long, thin, wandering
@@ -671,6 +729,8 @@ function generateChunk(k) {
 
   scene.add(group);
   chunks.set(k, { group, somas });
+  for (const r of somas) neurons.set(r.id, r);
+  connectNeurons(somas);
 }
 
 // Flared root: grows from inside the soma, wide at the core and easing down to the
@@ -701,6 +761,7 @@ function growAxon(batch, synapses, start, dir, radius, seed, tint) {
     p.addScaledVector(d, 0.6);
     a += 0.6;
     pts.push(p.clone()); rads.push(Math.max(radius * (1 - i / steps * 0.5), 0.015)); als.push(a);
+    if (ARBOR && (i & 1)) ARBOR.push(p.x, p.y, p.z, a);
     if (i > 20 && rand() < 0.03) growBranch(batch, synapses, p, d.clone().addScaledVector(randUnit(j), 0.9).normalize(), radius * 0.5, 3, a, seed, tint, rads[rads.length - 1], d);
   }
   batch.add(pts, rads, als, seed, tint);
@@ -730,10 +791,141 @@ function disposeChunk(k) {
     if (o.material && o.material !== fibreMat && o.material !== pointMat) o.material.dispose();
   });
   scene.remove(ch.group);
+  for (const r of ch.somas) neurons.delete(r.id);
   chunks.delete(k);
 }
 
 const fract = (x) => x - Math.floor(x);
+
+// ── Signal network ──────────────────────────────────────────────────────────
+// A junction A->B exists where A's arbor passes within junctionReach of B's soma.
+// Its delay is the arbor distance from A's soma to that point, so the spark
+// lands when A's visible pulse front gets there.
+function junction(A, B) {
+  const a = A.arbor, c = B.centre;
+  let best = Infinity, bi = -1;
+  for (let i = 0; i < a.length; i += 4) {
+    const dx = a[i] - c.x, dy = a[i + 1] - c.y, dz = a[i + 2] - c.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < best) { best = d2; bi = i; }
+  }
+  if (bi < 0 || best > CFG.junctionReach * CFG.junctionReach) return null;
+  return {
+    target: B.id,
+    along: a[bi + 3],
+    gap: Math.sqrt(best),
+    pos: new THREE.Vector3(a[bi], a[bi + 1], a[bi + 2]),
+  };
+}
+
+function connectNeurons(fresh) {
+  const all = [...neurons.values()];
+  const touched = new Set();
+  for (const A of fresh) {
+    for (const B of all) {
+      if (A === B || A.centre.distanceTo(B.centre) > 70) continue;
+      const ab = junction(A, B);
+      if (ab) { A.out.push(ab); touched.add(A); }
+      if (!fresh.includes(B)) {
+        const ba = junction(B, A);
+        if (ba) { B.out.push(ba); touched.add(B); }
+      }
+    }
+  }
+  // keep the nearest few junctions per neuron
+  for (const N of touched) {
+    N.out.sort((x, y) => x.gap - y.gap);
+    N.out.length = Math.min(N.out.length, CFG.maxTargets);
+  }
+}
+
+const events = []; // { t, kind: 'fire' | 'spark', id?, pos? }
+function schedule(e) {
+  let i = events.length;
+  while (i > 0 && events[i - 1].t > e.t) i--;
+  events.splice(i, 0, e);
+}
+
+function fireNeuron(N, t) {
+  if (t - N.lastFire < CFG.refractory) return;
+  N.lastFire = t;
+  N.fires[N.slot] = t;
+  fireData[(N.id % FIRE_W) * 4 + N.slot] = t;
+  N.slot = (N.slot + 1) & 3;
+  fireTex.needsUpdate = true;
+  for (const j of N.out) {
+    const arrive = t + j.along / CFG.pulseSpeed;
+    schedule({ t: arrive, kind: 'spark', pos: j.pos });
+    if (Math.random() < CFG.transmitP) {
+      schedule({ t: arrive + CFG.synapticDelay + j.gap / CFG.pulseSpeed, kind: 'fire', id: j.target });
+    }
+  }
+}
+
+function stepSignals(t, dt) {
+  // spontaneous activity keeps the network alive as the camera moves on
+  const pSpont = dt / CFG.spontaneousEvery;
+  for (const N of neurons.values()) if (Math.random() < pSpont) fireNeuron(N, t);
+  while (events.length && events[0].t <= t) {
+    const e = events.shift();
+    if (e.kind === 'spark') emitSpark(e.pos, e.t);
+    else { const N = neurons.get(e.id); if (N) fireNeuron(N, e.t); }
+  }
+}
+
+// Junction sparks: a small ring buffer of glints drawn as points
+const SPARKS = 96;
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPARKS * 3), 3));
+sparkGeo.setAttribute('aBirth', new THREE.BufferAttribute(new Float32Array(SPARKS).fill(-1000), 1));
+let sparkHead = 0;
+const sparkMat = new THREE.ShaderMaterial({
+  uniforms: { ...shared, uColor: { value: PALETTE.pulse } },
+  vertexShader: /* glsl */`
+    attribute float aBirth;
+    uniform float uTime, uPixelRatio;
+    varying float vA;
+    varying float vDepth;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vDepth = -mv.z;
+      float age = uTime - aBirth;
+      vA = step(0.0, age) * exp(-age * 2.4);
+      gl_PointSize = min((0.7 + age * 1.2) * uPixelRatio * (260.0 / max(vDepth, 0.5)), 40.0 * uPixelRatio) * step(0.0, age);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform float uFog, uDofFar;
+    uniform vec3 uColor;
+    varying float vA;
+    varying float vDepth;
+    void main() {
+      vec2 p = gl_PointCoord - 0.5;
+      float r2 = dot(p, p);
+      float a = (exp(-r2 * 26.0) + exp(-r2 * 200.0) * 1.6) * vA;
+      float fog = exp(-vDepth * uFog);
+      float nearFade = smoothstep(0.4, 2.5, vDepth);
+      float dA = (1.0 - clamp(vDepth / uDofFar, 0.0, 1.0)) * step(0.3, a) * step(0.12, fog * nearFade);
+      gl_FragColor = vec4(uColor * a * 1.6 * fog * nearFade, dA);
+    }
+  `,
+  transparent: true,
+  depthWrite: false,
+  ...DEPTH_ADDITIVE,
+});
+const sparks = new THREE.Points(sparkGeo, sparkMat);
+sparks.frustumCulled = false;
+scene.add(sparks);
+
+function emitSpark(pos, t) {
+  const i = sparkHead;
+  sparkHead = (sparkHead + 1) % SPARKS;
+  sparkGeo.attributes.position.setXYZ(i, pos.x, pos.y, pos.z);
+  sparkGeo.attributes.aBirth.setX(i, t);
+  sparkGeo.attributes.position.needsUpdate = true;
+  sparkGeo.attributes.aBirth.needsUpdate = true;
+}
 
 // ── Post-processing ─────────────────────────────────────────────────────────
 // MSAA on the scene target keeps hair-thin fibres from breaking into dashes
@@ -936,15 +1128,13 @@ function frame(now) {
   camera.lookAt(look);
   if (camOverride) { camera.position.copy(camOverride.pos); camera.lookAt(camOverride.target); }
 
-  // somas: slow breathing plus a flash when a pulse leaves the cell body
+  stepSignals(time, dt);
+
+  // somas: slow breathing plus a flash when the neuron fires
   for (const ch of chunks.values()) {
     for (const s of ch.somas) {
-      let flash = 0;
-      if (s.active) {
-        const ph = fract((0 - time * CFG.pulseSpeed) / CFG.pulseSpacing + s.seed);
-        const d = (ph - 0.5) * CFG.pulseSpacing;
-        flash = Math.exp(-d * d * 0.25);
-      }
+      const age = time - s.lastFire;
+      const flash = age >= 0 ? Math.exp(-age * 2.2) : 0;
       const breathe = 0.9 + 0.1 * Math.sin(time * 0.8 + s.phase);
       s.mesh.material.uniforms.uFlash.value = flash;
       s.mesh.material.uniforms.uGlow.value = breathe;
@@ -960,6 +1150,10 @@ function frame(now) {
 }
 
 canvas.classList.add('ready');
+{
+  const first = [...neurons.values()].sort(() => Math.random() - 0.5).slice(0, 3);
+  first.forEach((N, i) => schedule({ t: 0.6 + i * 1.3, kind: 'fire', id: N.id }));
+}
 requestAnimationFrame(frame);
 
 // debug hook for capture tooling
@@ -967,6 +1161,8 @@ window.__neuro = {
   CFG,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
+  fireAll: () => { for (const N of neurons.values()) { N.lastFire = -1000; fireNeuron(N, time); } },
+  stats: () => ({ neurons: neurons.size, junctions: [...neurons.values()].reduce((n, r) => n + r.out.length, 0), queued: events.length }),
   // frame the i-th live soma from a given distance (debug / capture only)
   frameSoma: (i = 0, dist = 5) => {
     const all = [...chunks.values()].flatMap((c) => c.somas);
