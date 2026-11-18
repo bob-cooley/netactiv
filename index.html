@@ -144,6 +144,15 @@
       user-select: none;
     }
 
+    /* Neural grid background canvas */
+    #neural-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: block;
+      pointer-events: none;
+    }
+
     @media (max-width: 600px) {
       .logo { top: 28px; left: 24px; }
       .logo img { width: clamp(200px, 55vw, 320px); }
@@ -153,6 +162,7 @@
   </style>
 </head>
 <body>
+  <canvas id="neural-bg"></canvas>
   <div id="glitch-overlay"></div>
   <div class="page">
     <div class="logo">
@@ -171,6 +181,7 @@
     <footer id="site-footer">&copy; 2026 netActiv</footer>
   </div>
 
+  <script src="neural-bg.js"></script>
   <script src="intro.js"></script>
   <script src="home-globe.js"></script>
 </body>
