@@ -178,7 +178,7 @@ const fibreMat = new THREE.ShaderMaterial({
       float d = (ph - 0.5) * uPulseSpacing;
       float pulse = exp(-d * d * 1.6) * firing;
       float trail = exp(-max(d, 0.0) * 0.35) * step(0.0, d) * step(d, 4.0) * firing * 0.12;
-      col += uPulse * (pulse * 2.2 + trail) * (0.6 + 0.6 * facing);
+      col += uPulse * (pulse * 1.8 + trail) * (0.6 + 0.6 * facing);
 
       float fog = exp(-depth * uFog);
       float nearFade = smoothstep(0.6, 6.0, depth);
@@ -221,7 +221,7 @@ function makeSomaMat() {
         vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
         float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
         vec3 col = mix(uRim * 0.7, uCore * 0.75, pow(facing, 3.0));
-        col *= (0.45 + 0.45 * facing) * (uGlow * 0.8 + uFlash * 1.8);
+        col *= (0.4 + 0.45 * facing) * (uGlow * 0.65 + uFlash * 1.1);
         float fog = exp(-depth * uFog);
         float nearFade = smoothstep(1.0, 7.0, depth);
         gl_FragColor = vec4(col * fog * nearFade, 1.0);
@@ -247,7 +247,7 @@ function radialTexture(stops) {
   return t;
 }
 const haloTex = radialTexture([
-  [0, 'rgba(200,225,255,0.9)'],
+  [0, 'rgba(200,225,255,0.55)'],
   [0.18, 'rgba(110,140,255,0.35)'],
   [0.5, 'rgba(60,70,220,0.08)'],
   [1, 'rgba(0,0,0,0)'],
@@ -269,7 +269,7 @@ const pointMat = new THREE.ShaderMaterial({
       vDepth = -mv.z;
       vTw = 0.55 + 0.45 * sin(uTime * (0.6 + aPhase * 1.7) + aPhase * 40.0);
       vColor = aColor;
-      gl_PointSize = aSize * uPixelRatio * (260.0 / max(vDepth, 0.5));
+      gl_PointSize = min(aSize * uPixelRatio * (260.0 / max(vDepth, 0.5)), 26.0 * uPixelRatio);
       gl_Position = projectionMatrix * mv;
     }
   `,
@@ -428,7 +428,7 @@ function generateChunk(k) {
     const centre = new THREE.Vector3(c.x + Math.cos(ang) * dist, c.y + Math.sin(ang) * dist * 0.75, z);
     const seed = rand();
     const tint = rand() < 0.12 ? rr(0.3, 0.7) : 0;
-    const somaR = rr(0.55, 1.05);
+    const somaR = rr(0.4, 0.75);
     const nPrim = ri(5, 9);
     const dirs = [];
     // one dominant apical direction + scattered basal dendrites
@@ -454,9 +454,9 @@ function generateChunk(k) {
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
       map: haloTex, color: 0xffffff, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending, fog: true, opacity: 0.85,
+      blending: THREE.AdditiveBlending, fog: true, opacity: 0.5,
     }));
-    halo.scale.setScalar(somaR * rr(9, 14));
+    halo.scale.setScalar(somaR * rr(5, 8));
     halo.position.copy(centre);
     group.add(halo);
 
@@ -491,10 +491,10 @@ function generateChunk(k) {
   for (const s of synapses) {
     const roll = rand();
     const col = roll < 0.06 ? PALETTE.synWarm : roll < 0.09 ? PALETTE.synHot : PALETTE.synCool;
-    const bright = s.kind === 1 ? rr(0.9, 1.6) : rr(0.35, 1.1);
+    const bright = s.kind === 1 ? rr(0.6, 1.1) : rr(0.35, 1.0);
     pts.push(s.p.x, s.p.y, s.p.z);
     cols.push(col.r * bright, col.g * bright, col.b * bright);
-    sizes.push(s.kind === 1 ? rr(0.5, 1.0) : rr(0.18, 0.55));
+    sizes.push(s.kind === 1 ? rr(0.3, 0.6) : rr(0.16, 0.45));
     phases.push(rand());
   }
   for (let i = 0; i < CFG.dustPerChunk; i++) {
@@ -696,8 +696,8 @@ function frame(now) {
       const breathe = 0.9 + 0.1 * Math.sin(time * 0.8 + s.phase);
       s.mesh.material.uniforms.uFlash.value = flash;
       s.mesh.material.uniforms.uGlow.value = breathe;
-      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.45));
-      s.halo.material.opacity = 0.7 + flash * 0.3;
+      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.2));
+      s.halo.material.opacity = 0.45 + flash * 0.2;
     }
   }
 
