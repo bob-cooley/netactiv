@@ -4,3 +4,8 @@ Options -Indexes
 <Files "lib.php">
   Require all denied
 </Files>
+
+# Keep every file in this folder (pages, scripts, styles) out of search engines.
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive"
+</IfModule>
