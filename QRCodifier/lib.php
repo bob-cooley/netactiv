@@ -268,9 +268,17 @@ function qrc_mutate(callable $fn)
 
     [$items, $result] = $fn($items);
 
+    // Encode before touching the file so a failure can never wipe the gallery.
+    $encoded = json_encode(array_values($items), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($encoded)) {
+        flock($fh, LOCK_UN);
+        fclose($fh);
+        qrc_json(['error' => 'Could not save gallery (encoding failed). Nothing was changed.'], 500);
+    }
+
     ftruncate($fh, 0);
     rewind($fh);
-    fwrite($fh, json_encode(array_values($items), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    fwrite($fh, $encoded);
     fflush($fh);
     flock($fh, LOCK_UN);
     fclose($fh);

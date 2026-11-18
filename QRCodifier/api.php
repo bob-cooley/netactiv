@@ -68,7 +68,8 @@ switch ($action) {
             qrc_json(['error' => 'URL failed the live check: ' . $check['message'], 'url' => $url, 'check' => $check], 422);
         }
         $label = trim((string) ($input['label'] ?? ''));
-        $label = function_exists('mb_substr') ? mb_substr($label, 0, 80) : substr($label, 0, 80);
+        // UTF-8-safe truncation that works without mbstring.
+        $label = preg_match('/^.{0,80}/us', $label, $m) ? $m[0] : '';
 
         $item = qrc_mutate(static function (array $items) use ($url, $label, $check): array {
             foreach ($items as $i => $existing) {
