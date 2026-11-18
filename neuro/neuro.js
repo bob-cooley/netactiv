@@ -160,8 +160,11 @@ const fibreMat = new THREE.ShaderMaterial({
     void main() {
       float depth = -vV.z;
       vec3 V = normalize(-vV);
-      float facing = abs(dot(normalize(vN), V));
-      float rim = pow(1.0 - facing, 1.6);
+      // guard: interpolated normals can shrink toward zero, and float rounding can push
+      // |dot| past 1.0; pow() of a negative base is NaN, which bloom smears into squares
+      vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
+      float facing = clamp(abs(dot(n, V)), 0.0, 1.0);
+      float rim = pow(max(1.0 - facing, 0.0), 1.6);
 
       // body: dim indigo core, bright violet rim -> reads as translucent tube
       vec3 col = mix(uBase * 0.35, uEdge, rim);
@@ -215,7 +218,8 @@ function makeSomaMat() {
       varying vec3 vV;
       void main() {
         float depth = -vV.z;
-        float facing = abs(dot(normalize(vN), normalize(-vV)));
+        vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
+        float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
         vec3 col = mix(uRim * 0.7, uCore * 0.75, pow(facing, 3.0));
         col *= (0.45 + 0.45 * facing) * (uGlow * 0.8 + uFlash * 1.8);
         float fog = exp(-depth * uFog);
@@ -568,6 +572,24 @@ const composer = new EffectComposer(renderer, msaaTarget);
 composer.setPixelRatio(CFG.dpr);
 composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
+
+// Safety net: zero out any NaN / Inf pixel before bloom can spread it
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      bool bad = any(notEqual(c, c)) || any(greaterThan(c, vec3(6.0e4)));
+      gl_FragColor = vec4(bad ? vec3(0.0) : min(c, vec3(64.0)), 1.0);
+    }
+  `,
+}));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), CFG.bloom.strength, CFG.bloom.radius, CFG.bloom.threshold);
 composer.addPass(bloom);
 
