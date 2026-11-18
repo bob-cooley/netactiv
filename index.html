@@ -161,7 +161,10 @@
       pointer-events: none;
       width: 100%;
       height: 100%;
+      opacity: 0;
+      transition: opacity 2.4s ease;
     }
+    #neuro.ready { opacity: 1; }
     #neuro-fallback { display: none; }
 
     @media (max-width: 600px) {
@@ -195,7 +198,6 @@
 
   <script type="module" src="neuro/neuro.js?v=10"></script>
   <script src="intro.js"></script>
-  <!-- home-globe.js temporarily removed for neuro test -->
-  <!-- <script src="home-globe.js"></script> -->
+  <script src="home-globe.js"></script>
 </body>
 </html>
