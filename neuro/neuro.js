@@ -210,7 +210,80 @@ const fibreMat = new THREE.ShaderMaterial({
 });
 
 // ── Soma material ───────────────────────────────────────────────────────────
-function makeSomaMat() {
+const GLSL_NOISE = /* glsl */`
+  float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float vnoise(vec3 p) {
+    vec3 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+      mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y),
+      f.z);
+  }
+`;
+
+const SOMA_VERT = /* glsl */`
+  varying vec3 vN;
+  varying vec3 vV;
+  varying vec3 vObj;
+  void main() {
+    vObj = position;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vV = mv.xyz;
+    vN = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+// Cell membrane: dark translucent interior, crisp mottled violet edge.
+function makeSomaMat(grainScale) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uFog: shared.uFog,
+      uDofFar: shared.uDofFar,
+      uRim: { value: PALETTE.somaRim },
+      uEdge: { value: PALETTE.fibreEdge },
+      uFlash: { value: 0 },
+      uGlow: { value: 1 },
+      uGrain: { value: grainScale },
+    },
+    vertexShader: SOMA_VERT,
+    fragmentShader: GLSL_NOISE + /* glsl */`
+      uniform float uFog, uFlash, uGlow, uDofFar, uGrain;
+      uniform vec3 uRim, uEdge;
+      varying vec3 vN;
+      varying vec3 vV;
+      varying vec3 vObj;
+      void main() {
+        float depth = -vV.z;
+        vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
+        float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
+        float edge = 1.0 - facing;
+        // tight rim = defined membrane outline; broad rim = body volume
+        float rimTight = pow(edge, 4.0);
+        float rimBroad = pow(edge, 1.6);
+        // granular cytoplasm / membrane texture
+        vec3 q = vObj * uGrain;
+        float grain = vnoise(q * 3.0) * 0.6 + vnoise(q * 9.0) * 0.4;
+        vec3 col = uEdge * rimTight * (1.1 + 0.6 * grain)
+                 + uRim * rimBroad * 0.32 * (0.6 + 0.8 * grain)
+                 + uRim * 0.05 * grain;
+        col *= uGlow * 0.85 + uFlash * 0.9;
+        float fog = exp(-depth * uFog);
+        float nearFade = smoothstep(0.8, 5.0, depth);
+        float vis = fog * nearFade;
+        float dA = (1.0 - clamp(depth / uDofFar, 0.0, 1.0)) * step(0.12, vis);
+        gl_FragColor = vec4(col * vis, dA);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    ...DEPTH_ADDITIVE,
+  });
+}
+
+// Nucleus: seen through the membrane; bright face-on core, soft falloff, tiny nucleolus.
+function makeNucleusMat() {
   return new THREE.ShaderMaterial({
     uniforms: {
       uFog: shared.uFog,
@@ -220,27 +293,22 @@ function makeSomaMat() {
       uFlash: { value: 0 },
       uGlow: { value: 1 },
     },
-    vertexShader: /* glsl */`
-      varying vec3 vN;
-      varying vec3 vV;
-      void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vV = mv.xyz;
-        vN = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: /* glsl */`
+    vertexShader: SOMA_VERT,
+    fragmentShader: GLSL_NOISE + /* glsl */`
       uniform float uFog, uFlash, uGlow, uDofFar;
       uniform vec3 uCore, uRim;
       varying vec3 vN;
       varying vec3 vV;
+      varying vec3 vObj;
       void main() {
         float depth = -vV.z;
         vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
         float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
-        vec3 col = mix(uRim * 0.7, uCore * 0.75, pow(facing, 3.0));
-        col *= (0.4 + 0.45 * facing) * (uGlow * 0.65 + uFlash * 1.1);
+        float core = pow(facing, 3.5);
+        float mottle = 0.75 + 0.5 * vnoise(vObj * 7.0);
+        vec3 col = mix(uRim * 0.25, uCore * 0.55, core) * mottle;
+        col += uCore * pow(facing, 18.0) * 0.6;           // nucleolus glint
+        col *= uGlow * 0.8 + uFlash * 1.6;
         float fog = exp(-depth * uFog);
         float nearFade = smoothstep(0.8, 5.0, depth);
         float vis = fog * nearFade;
@@ -413,7 +481,8 @@ function buildSomaGeometry(radius, dirs) {
   const off = rr(0, 100);
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
-    let s = radius * (0.85 + 0.35 * noise3(v.x * 2.2 + off, v.y * 2.2, v.z * 2.2));
+    let s = radius * (0.9 + 0.2 * noise3(v.x * 2.6 + off, v.y * 2.6, v.z * 2.6)
+                    + 0.05 * noise3(v.x * 9 + off, v.y * 9, v.z * 9));
     // pull the membrane out toward each primary dendrite: pyramidal / stellate shape
     for (const d of dirs) {
       const k = Math.max(v.dot(d), 0);
@@ -427,6 +496,7 @@ function buildSomaGeometry(radius, dirs) {
 
 // ── Chunk generation ────────────────────────────────────────────────────────
 const chunks = new Map(); // index -> { group, somas: [] }
+const nucleusGeo = new THREE.IcosahedronGeometry(1, 3);
 const fibreGeoms = [];
 
 function generateChunk(k) {
@@ -469,23 +539,28 @@ function generateChunk(k) {
     const axDir = apical.clone().negate().addScaledVector(randUnit(), 0.4).normalize();
     growAxon(batch, synapses, centre.clone().addScaledVector(axDir, somaR * 1.4), axDir, somaR * 0.12, seed, tint);
 
-    const mat = makeSomaMat();
-    const soma = new THREE.Mesh(buildSomaGeometry(somaR, dirs), mat);
+    const soma = new THREE.Mesh(buildSomaGeometry(somaR, dirs), makeSomaMat(1.0 / somaR));
     soma.position.copy(centre);
     group.add(soma);
+
+    // nucleus sits slightly off-centre inside the body
+    const nucleus = new THREE.Mesh(nucleusGeo, makeNucleusMat());
+    nucleus.scale.setScalar(somaR * rr(0.36, 0.46));
+    nucleus.position.copy(centre).addScaledVector(randUnit(), somaR * 0.15);
+    group.add(nucleus);
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
       map: haloTex, color: 0xffffff, transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
       blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
       blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
-      fog: true, opacity: 0.5,
+      fog: true, opacity: 0.3,
     }));
-    halo.scale.setScalar(somaR * rr(5, 8));
+    halo.scale.setScalar(somaR * rr(3.5, 5.5));
     halo.position.copy(centre);
     group.add(halo);
 
-    somas.push({ mesh: soma, halo, seed, active: fract(seed * 13.17) >= 0.42, baseHalo: halo.scale.x, phase: rand() * 10 });
+    somas.push({ mesh: soma, nucleus, halo, seed, active: fract(seed * 13.17) >= 0.42, baseHalo: halo.scale.x, phase: rand() * 10 });
   }
 
   // passing fibres from neurons outside the tunnel: long, thin, wandering
@@ -578,7 +653,7 @@ function disposeChunk(k) {
   const ch = chunks.get(k);
   if (!ch) return;
   ch.group.traverse((o) => {
-    if (o.geometry) o.geometry.dispose();
+    if (o.geometry && o.geometry !== nucleusGeo) o.geometry.dispose();
     if (o.material && o.material !== fibreMat && o.material !== pointMat) o.material.dispose();
   });
   scene.remove(ch.group);
@@ -729,6 +804,7 @@ let time = 0;
 const camPos = new THREE.Vector3(), look = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
 const fwd = new THREE.Vector3(), toSoma = new THREE.Vector3();
 let focus = 14.0;
+let camOverride = null; // debug: frame a specific soma
 
 // Autofocus: rack toward the cell body nearest the centre of frame; when none is
 // close to centre, drift slowly so focus still wanders through the layers.
@@ -785,6 +861,7 @@ function frame(now) {
   up.set(Math.sin(roll), Math.cos(roll), 0);
   camera.up.copy(up);
   camera.lookAt(look);
+  if (camOverride) { camera.position.copy(camOverride.pos); camera.lookAt(camOverride.target); }
 
   // somas: slow breathing plus a flash when a pulse leaves the cell body
   for (const ch of chunks.values()) {
@@ -798,8 +875,10 @@ function frame(now) {
       const breathe = 0.9 + 0.1 * Math.sin(time * 0.8 + s.phase);
       s.mesh.material.uniforms.uFlash.value = flash;
       s.mesh.material.uniforms.uGlow.value = breathe;
-      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.2));
-      s.halo.material.opacity = 0.45 + flash * 0.2;
+      s.nucleus.material.uniforms.uFlash.value = flash;
+      s.nucleus.material.uniforms.uGlow.value = breathe;
+      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.25));
+      s.halo.material.opacity = 0.25 + flash * 0.25;
     }
   }
 
@@ -811,4 +890,17 @@ canvas.classList.add('ready');
 requestAnimationFrame(frame);
 
 // debug hook for capture tooling
-window.__neuro = { CFG, setTravel: (z) => { travel = z; }, renderOnce: () => composer.render() };
+window.__neuro = {
+  CFG,
+  setTravel: (z) => { travel = z; },
+  renderOnce: () => composer.render(),
+  // frame the i-th live soma from a given distance (debug / capture only)
+  frameSoma: (i = 0, dist = 5) => {
+    const all = [...chunks.values()].flatMap((c) => c.somas);
+    const s = all[i % all.length];
+    if (!s) return false;
+    const target = s.mesh.position.clone();
+    camOverride = { target, pos: target.clone().add(new THREE.Vector3(0.6, 0.4, dist)) };
+    return true;
+  },
+};
