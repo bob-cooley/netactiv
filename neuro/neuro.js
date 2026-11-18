@@ -198,7 +198,9 @@ const fibreMat = new THREE.ShaderMaterial({
       float fog = exp(-depth * uFog);
       // with depth-of-field, close fibres melt into soft light instead of vanishing
       float nearFade = smoothstep(0.35, 3.0, depth);
-      float vis = fog * nearFade;
+      // roots (aAlong < 0) fade out inside the soma so the join blends
+      float rootFade = smoothstep(-0.9, 0.1, vAlong);
+      float vis = fog * nearFade * rootFade;
       float dA = (1.0 - clamp(depth / uDofFar, 0.0, 1.0)) * step(0.12, vis);
       gl_FragColor = vec4(col * uIntensity * vis, dA);
     }
@@ -488,7 +490,7 @@ function buildSomaGeometry(radius, dirs) {
     // pull the membrane out toward each primary dendrite: pyramidal / stellate shape
     for (const d of dirs) {
       const k = Math.max(v.dot(d), 0);
-      s += radius * 1.6 * Math.pow(k, 7);
+      s += radius * 1.25 * Math.pow(k, 4);
     }
     pos.setXYZ(i, v.x * s, v.y * s, v.z * s);
   }
@@ -535,10 +537,12 @@ function generateChunk(k) {
       const d = dirs[i];
       const start = centre.clone().addScaledVector(d, somaR * 1.6);
       const r0 = somaR * (i === 0 ? 0.38 : rr(0.2, 0.3));
+      addRoot(batch, centre, d, somaR, somaR * 1.6, r0, seed, tint);
       growBranch(batch, synapses, start, d, r0, i === 0 ? 0 : 1, 0, seed, tint);
     }
     // the axon: long, thin, fairly straight
     const axDir = apical.clone().negate().addScaledVector(randUnit(), 0.4).normalize();
+    addRoot(batch, centre, axDir, somaR, somaR * 1.4, somaR * 0.12, seed, tint);
     growAxon(batch, synapses, centre.clone().addScaledVector(axDir, somaR * 1.4), axDir, somaR * 0.12, seed, tint);
 
     const soma = new THREE.Mesh(buildSomaGeometry(somaR, dirs), makeSomaMat(1.0 / somaR));
@@ -618,6 +622,24 @@ function generateChunk(k) {
 
   scene.add(group);
   chunks.set(k, { group, somas });
+}
+
+// Flared root: grows from inside the soma, wide at the core and easing down to the
+// branch's own radius at the membrane, so the dendrite emerges from the cell body
+// instead of butting against it. aAlong runs -1..0 here; the fibre shader fades
+// that span out so the in-soma portion blends into the membrane.
+function addRoot(batch, centre, dir, somaR, startDist, r0, seed, tint) {
+  const N = 9;
+  const pts = [], rads = [], als = [];
+  const d0 = somaR * 0.1;
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    pts.push(centre.clone().addScaledVector(dir, d0 + (startDist - d0) * t));
+    const e = t * t * (3 - 2 * t);
+    rads.push(somaR * 0.75 + (r0 - somaR * 0.75) * e);
+    als.push(t - 1);
+  }
+  batch.add(pts, rads, als, seed, tint);
 }
 
 function growAxon(batch, synapses, start, dir, radius, seed, tint) {
