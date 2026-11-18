@@ -260,14 +260,16 @@ function makeSomaMat(grainScale) {
         float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
         float edge = 1.0 - facing;
         // tight rim = defined membrane outline; broad rim = body volume
-        float rimTight = pow(edge, 4.0);
-        float rimBroad = pow(edge, 1.6);
+        float rimTight = pow(edge, 2.6);
+        float rimBroad = pow(edge, 1.4);
         // granular cytoplasm / membrane texture
         vec3 q = vObj * uGrain;
         float grain = vnoise(q * 3.0) * 0.6 + vnoise(q * 9.0) * 0.4;
-        vec3 col = uEdge * rimTight * (1.1 + 0.6 * grain)
-                 + uRim * rimBroad * 0.32 * (0.6 + 0.8 * grain)
-                 + uRim * 0.05 * grain;
+        grain = 0.5 + (grain - 0.5) * 0.5;               // half-strength texture
+        vec3 col = uEdge * rimTight * 0.8 * (0.85 + 0.3 * grain)
+                 + uRim * rimBroad * 0.42 * (0.8 + 0.4 * grain)
+                 + uRim * 0.07
+                 + uEdge * pow(facing, 3.0) * 0.18;     // soft fill, a little of the old glow
         col *= uGlow * 0.85 + uFlash * 0.9;
         float fog = exp(-depth * uFog);
         float nearFade = smoothstep(0.8, 5.0, depth);
@@ -304,10 +306,10 @@ function makeNucleusMat() {
         float depth = -vV.z;
         vec3 n = vN * inversesqrt(max(dot(vN, vN), 1e-8));
         float facing = clamp(abs(dot(n, normalize(-vV))), 0.0, 1.0);
-        float core = pow(facing, 3.5);
-        float mottle = 0.75 + 0.5 * vnoise(vObj * 7.0);
+        float core = pow(facing, 2.2);
+        float mottle = 0.88 + 0.25 * vnoise(vObj * 7.0);
         vec3 col = mix(uRim * 0.25, uCore * 0.55, core) * mottle;
-        col += uCore * pow(facing, 18.0) * 0.6;           // nucleolus glint
+        col += uCore * pow(facing, 10.0) * 0.25;          // nucleolus glint
         col *= uGlow * 0.8 + uFlash * 1.6;
         float fog = exp(-depth * uFog);
         float nearFade = smoothstep(0.8, 5.0, depth);
@@ -482,7 +484,7 @@ function buildSomaGeometry(radius, dirs) {
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).normalize();
     let s = radius * (0.9 + 0.2 * noise3(v.x * 2.6 + off, v.y * 2.6, v.z * 2.6)
-                    + 0.05 * noise3(v.x * 9 + off, v.y * 9, v.z * 9));
+                    + 0.02 * noise3(v.x * 9 + off, v.y * 9, v.z * 9));
     // pull the membrane out toward each primary dendrite: pyramidal / stellate shape
     for (const d of dirs) {
       const k = Math.max(v.dot(d), 0);
@@ -554,9 +556,9 @@ function generateChunk(k) {
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
       blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
       blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
-      fog: true, opacity: 0.3,
+      fog: true, opacity: 0.4,
     }));
-    halo.scale.setScalar(somaR * rr(3.5, 5.5));
+    halo.scale.setScalar(somaR * rr(4.5, 7));
     halo.position.copy(centre);
     group.add(halo);
 
@@ -878,7 +880,7 @@ function frame(now) {
       s.nucleus.material.uniforms.uFlash.value = flash;
       s.nucleus.material.uniforms.uGlow.value = breathe;
       s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.25));
-      s.halo.material.opacity = 0.25 + flash * 0.25;
+      s.halo.material.opacity = 0.35 + flash * 0.25;
     }
   }
 
