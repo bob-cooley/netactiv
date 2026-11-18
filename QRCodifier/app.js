@@ -422,7 +422,6 @@
       $('empty').textContent = 'Could not load gallery: ' + e.message;
       return;
     }
-    if (state.items.length) state.selectedId = state.items[0].id;
     renderGrid();
     renderPreview();
   })();

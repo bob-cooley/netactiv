@@ -74,13 +74,36 @@ $asset = static function (string $file): string {
       <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
       <input type="text" name="username" value="bob" autocomplete="username" hidden>
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <div class="password-control">
+        <input id="password" name="password" spellcheck="false" autocapitalize="off" type="password" autocomplete="current-password" required autofocus>
+        <button class="password-visibility" id="togglePassword" type="button" aria-label="Show password" aria-pressed="false">
+          <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2.25 12s3.5-6 9.75-6 9.75 6 9.75 6-3.5 6-9.75 6S2.25 12 2.25 12Z"></path>
+            <circle cx="12" cy="12" r="2.75"></circle>
+            <path class="eye-slash" d="M4 4 20 20"></path>
+          </svg>
+        </button>
+      </div>
       <div class="cf-turnstile" data-sitekey="<?= $h(qrc_config()['turnstile_site']) ?>" data-theme="dark"></div>
       <button type="submit">Enter</button>
 <?php if ($error !== ''): ?>
       <p class="error" role="alert"><?= $h($error) ?></p>
 <?php endif; ?>
     </form>
+    <script>
+      (function () {
+        var input = document.getElementById('password');
+        var toggle = document.getElementById('togglePassword');
+        toggle.addEventListener('click', function () {
+          var showing = input.type === 'text';
+          input.type = showing ? 'password' : 'text';
+          toggle.classList.toggle('showing', !showing);
+          toggle.setAttribute('aria-pressed', String(!showing));
+          toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+          input.focus();
+        });
+      })();
+    </script>
 <?php endif; ?>
   </main>
 
