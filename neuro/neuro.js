@@ -27,6 +27,9 @@ const CFG = {
   pulseSpacing: 46.0,           // distance between successive pulses
   dpr: Math.min(devicePixelRatio || 1, IS_MOBILE ? 1.25 : 1.75),
   bloom: { strength: 0.95, radius: 0.6, threshold: 0.14 },
+  dof: params.get('dof') !== '0',
+  dofSamples: IS_MOBILE ? 20 : 40,
+  dofFar: 120.0,                // depth encoded into alpha is normalised to this range
   seed: params.has('seed') ? parseInt(params.get('seed'), 10) : (Math.random() * 1e9) | 0,
 };
 
@@ -97,12 +100,11 @@ try {
 }
 renderer.setPixelRatio(CFG.dpr);
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(PALETTE.bg, 1);
+renderer.setClearColor(PALETTE.bg, 0); // alpha 0 = far, for depth-of-field
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.background = PALETTE.bg;
 scene.fog = new THREE.FogExp2(PALETTE.bg, CFG.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 220);
@@ -114,6 +116,19 @@ const shared = {
   uPulseSpeed: { value: CFG.pulseSpeed },
   uPulseSpacing: { value: CFG.pulseSpacing },
   uPixelRatio: { value: CFG.dpr },
+  uDofFar: { value: CFG.dofFar },
+};
+
+// Additive colour, but alpha keeps the NEAREST visible depth (max of 1 - d/far).
+// Every glowing material uses this so the DOF pass can read per-pixel distance.
+const DEPTH_ADDITIVE = {
+  blending: THREE.CustomBlending,
+  blendEquation: THREE.AddEquation,
+  blendSrc: THREE.OneFactor,
+  blendDst: THREE.OneFactor,
+  blendEquationAlpha: THREE.MaxEquation,
+  blendSrcAlpha: THREE.OneFactor,
+  blendDstAlpha: THREE.OneFactor,
 };
 
 // ── Fibre material (dendrites, axons) ───────────────────────────────────────
@@ -149,7 +164,7 @@ const fibreMat = new THREE.ShaderMaterial({
     }
   `,
   fragmentShader: /* glsl */`
-    uniform float uTime, uFog, uPulseSpeed, uPulseSpacing, uIntensity;
+    uniform float uTime, uFog, uPulseSpeed, uPulseSpacing, uIntensity, uDofFar;
     uniform vec3 uBase, uEdge, uPale, uPulse;
     varying vec3 vN;
     varying vec3 vV;
@@ -181,13 +196,16 @@ const fibreMat = new THREE.ShaderMaterial({
       col += uPulse * (pulse * 1.8 + trail) * (0.6 + 0.6 * facing);
 
       float fog = exp(-depth * uFog);
-      float nearFade = smoothstep(0.6, 6.0, depth);
-      gl_FragColor = vec4(col * uIntensity * fog * nearFade, 1.0);
+      // with depth-of-field, close fibres melt into soft light instead of vanishing
+      float nearFade = smoothstep(0.35, 3.0, depth);
+      float vis = fog * nearFade;
+      float dA = (1.0 - clamp(depth / uDofFar, 0.0, 1.0)) * step(0.12, vis);
+      gl_FragColor = vec4(col * uIntensity * vis, dA);
     }
   `,
   transparent: true,
   depthWrite: false,
-  blending: THREE.AdditiveBlending,
+  ...DEPTH_ADDITIVE,
   side: THREE.DoubleSide,
 });
 
@@ -196,6 +214,7 @@ function makeSomaMat() {
   return new THREE.ShaderMaterial({
     uniforms: {
       uFog: shared.uFog,
+      uDofFar: shared.uDofFar,
       uCore: { value: PALETTE.somaCore },
       uRim: { value: PALETTE.somaRim },
       uFlash: { value: 0 },
@@ -212,7 +231,7 @@ function makeSomaMat() {
       }
     `,
     fragmentShader: /* glsl */`
-      uniform float uFog, uFlash, uGlow;
+      uniform float uFog, uFlash, uGlow, uDofFar;
       uniform vec3 uCore, uRim;
       varying vec3 vN;
       varying vec3 vV;
@@ -223,13 +242,15 @@ function makeSomaMat() {
         vec3 col = mix(uRim * 0.7, uCore * 0.75, pow(facing, 3.0));
         col *= (0.4 + 0.45 * facing) * (uGlow * 0.65 + uFlash * 1.1);
         float fog = exp(-depth * uFog);
-        float nearFade = smoothstep(1.0, 7.0, depth);
-        gl_FragColor = vec4(col * fog * nearFade, 1.0);
+        float nearFade = smoothstep(0.8, 5.0, depth);
+        float vis = fog * nearFade;
+        float dA = (1.0 - clamp(depth / uDofFar, 0.0, 1.0)) * step(0.12, vis);
+        gl_FragColor = vec4(col * vis, dA);
       }
     `,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    ...DEPTH_ADDITIVE,
   });
 }
 
@@ -274,7 +295,7 @@ const pointMat = new THREE.ShaderMaterial({
     }
   `,
   fragmentShader: /* glsl */`
-    uniform float uFog;
+    uniform float uFog, uDofFar;
     varying vec3 vColor;
     varying float vDepth;
     varying float vTw;
@@ -284,12 +305,13 @@ const pointMat = new THREE.ShaderMaterial({
       float a = exp(-r2 * 30.0) + exp(-r2 * 260.0) * 1.5;
       float fog = exp(-vDepth * uFog);
       float nearFade = smoothstep(0.4, 2.5, vDepth);
-      gl_FragColor = vec4(vColor * a * vTw * fog * nearFade, 1.0);
+      float dA = (1.0 - clamp(vDepth / uDofFar, 0.0, 1.0)) * step(0.35, a) * step(0.12, fog * nearFade);
+      gl_FragColor = vec4(vColor * a * vTw * fog * nearFade, dA);
     }
   `,
   transparent: true,
   depthWrite: false,
-  blending: THREE.AdditiveBlending,
+  ...DEPTH_ADDITIVE,
 });
 
 // ── Geometry: tapered tubes ─────────────────────────────────────────────────
@@ -454,7 +476,10 @@ function generateChunk(k) {
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
       map: haloTex, color: 0xffffff, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending, fog: true, opacity: 0.5,
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+      blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
+      blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+      fog: true, opacity: 0.5,
     }));
     halo.scale.setScalar(somaR * rr(5, 8));
     halo.position.copy(centre);
@@ -586,11 +611,66 @@ composer.addPass(new ShaderPass({
     void main() {
       vec3 c = texture2D(tDiffuse, vUv).rgb;
       bool bad = any(notEqual(c, c)) || any(greaterThan(c, vec3(6.0e4)));
-      gl_FragColor = vec4(bad ? vec3(0.0) : min(c, vec3(64.0)), 1.0);
+      gl_FragColor = vec4(bad ? vec3(0.0) : min(c, vec3(64.0)), texture2D(tDiffuse, vUv).a);
     }
   `,
 }));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), CFG.bloom.strength, CFG.bloom.radius, CFG.bloom.threshold);
+// Depth of field: gather blur driven by depth stored in alpha.
+// Thin-lens circle of confusion ~ |1/d - 1/focus|; each sample contributes only
+// if its own blur disc reaches the centre pixel, so sharp foreground stays sharp.
+const dofPass = new ShaderPass({
+  defines: { SAMPLES: CFG.dofSamples },
+  uniforms: {
+    tDiffuse: { value: null },
+    uRes: { value: new THREE.Vector2(innerWidth * CFG.dpr, innerHeight * CFG.dpr) },
+    uFocus: { value: 14.0 },
+    uFar: { value: CFG.dofFar },
+    uK: { value: 30.0 * CFG.dpr },
+    uMaxR: { value: (IS_MOBILE ? 10.0 : 15.0) * CFG.dpr },
+    uFarBlur: { value: 3.5 * CFG.dpr },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform vec2 uRes;
+    uniform float uFocus, uFar, uK, uMaxR, uFarBlur;
+    varying vec2 vUv;
+    float depthOf(float a) { return max((1.0 - clamp(a, 0.0, 1.0)) * uFar, 0.05); }
+    float cocOf(float d) {
+      float c = abs(1.0 / d - 1.0 / uFocus) * uK;
+      c += smoothstep(uFocus, uFocus + 60.0, d) * uFarBlur;
+      return min(c, uMaxR);
+    }
+    void main() {
+      vec4 c0 = texture2D(tDiffuse, vUv);
+      float d0 = depthOf(c0.a);
+      float coc0 = cocOf(d0);
+      vec3 acc = c0.rgb;
+      float wsum = 1.0;
+      for (int i = 0; i < SAMPLES; i++) {
+        float t = (float(i) + 0.5) / float(SAMPLES);
+        float r = sqrt(t) * uMaxR;
+        float ang = float(i) * 2.39996323;
+        vec2 off = vec2(cos(ang), sin(ang)) * r / uRes;
+        vec4 s = texture2D(tDiffuse, vUv + off);
+        float sd = depthOf(s.a);
+        float sc = cocOf(sd);
+        // background must not bleed over a sharper foreground
+        if (sd > d0) sc = min(sc, coc0 * 2.0);
+        float w = smoothstep(r - 1.0, r + 0.5, sc);
+        acc += s.rgb * w;
+        wsum += w;
+      }
+      gl_FragColor = vec4(acc / wsum, 1.0);
+    }
+  `,
+});
+dofPass.enabled = CFG.dof;
+composer.addPass(dofPass);
 composer.addPass(bloom);
 
 const finish = new ShaderPass({
@@ -637,6 +717,7 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
   bloom.setSize(innerWidth, innerHeight);
   finish.uniforms.uRes.value.set(innerWidth, innerHeight);
+  dofPass.uniforms.uRes.value.set(innerWidth * CFG.dpr, innerHeight * CFG.dpr);
 });
 let paused = false;
 document.addEventListener('visibilitychange', () => { paused = document.hidden; last = performance.now(); });
@@ -646,6 +727,27 @@ let travel = parseFloat(params.get('z') || '0'); // distance along -Z
 let last = performance.now();
 let time = 0;
 const camPos = new THREE.Vector3(), look = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+const fwd = new THREE.Vector3(), toSoma = new THREE.Vector3();
+let focus = 14.0;
+
+// Autofocus: rack toward the cell body nearest the centre of frame; when none is
+// close to centre, drift slowly so focus still wanders through the layers.
+function updateFocus(dt) {
+  camera.getWorldDirection(fwd);
+  let best = null, bestScore = 0.32;
+  for (const ch of chunks.values()) {
+    for (const s of ch.somas) {
+      toSoma.subVectors(s.mesh.position, camera.position);
+      const d = toSoma.dot(fwd);
+      if (d < 6 || d > 38) continue;
+      const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
+      if (lateral < bestScore) { bestScore = lateral; best = d; }
+    }
+  }
+  const target = best !== null ? best : 16 + Math.sin(time * 0.05) * 4 + Math.sin(time * 0.13) * 1.5;
+  focus += (target - focus) * Math.min(dt * 0.6, 1);
+  dofPass.uniforms.uFocus.value = focus;
+}
 
 function ensureChunks() {
   const cur = Math.floor(travel / CFG.chunkLen);
@@ -701,6 +803,7 @@ function frame(now) {
     }
   }
 
+  if (dofPass.enabled) updateFocus(dt);
   composer.render();
 }
 
