@@ -64,6 +64,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           port: 21
+          protocol: ftps
           local-dir: ./
           server-dir: public_html/netactiv/
           log-level: verbose
@@ -78,6 +79,8 @@ jobs:
             .deploy-cutethulhu/**
             .deploy-qrcodifier/**
             qrcodifier-data/**
+            **/*.md
+            **/_notes/**
 
       - name: Upload private Menagerie configuration
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -86,6 +89,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           port: 21
+          protocol: ftps
           local-dir: ./.deploy-private/
           server-dir: public_html/netactiv/menagerie-data/
           log-level: standard
@@ -97,6 +101,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           port: 21
+          protocol: ftps
           local-dir: ./.deploy-qrcodifier/
           server-dir: public_html/netactiv/qrcodifier-data/config/
           log-level: standard
