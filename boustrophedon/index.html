@@ -562,7 +562,7 @@
       const r = new FileReader();
       r.onload = async e => {
         try {
-          const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
+          const pdf = await pdfjsLib.getDocument({ data: e.target.result, isEvalSupported: false }).promise;
           let out = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);

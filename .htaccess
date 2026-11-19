@@ -1,0 +1,18 @@
+# Site-wide hardening for netactiv.com
+
+# No automatic folder listings
+Options -Indexes
+
+# Security headers. setifempty leaves stricter values set by individual pages alone.
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header setifempty X-Content-Type-Options "nosniff"
+  Header setifempty X-Frame-Options "SAMEORIGIN"
+  Header setifempty Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Keep deploy records, notes and editor files off the web
+<FilesMatch "(^\.ftp-deploy-sync-state\.json$|\.md$|^dwsync\.xml$)">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 /_notes(/|$)
