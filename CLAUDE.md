@@ -10,3 +10,13 @@
 
 - The navigation and framework font for the site is Century Gothic Pro —
   this is Bob's brand font, also used for the "bobcooley" wordmark.
+
+- Keep `main` in sync with what is live. Before deploying a branch, merge the
+  latest `origin/main` into it (a stale branch deploy overwrites newer live
+  files). After a branch deploy, open a pull request to `main` and merge it
+  without asking, because any push to `main` auto-deploys and will delete or
+  revert live files that only exist on the branch. Hold the merge and tell Bob
+  only when: a review finding is unresolved, the branch deploy failed or broke
+  something live, merging `main` needs a judgment call, Bob said the work is
+  experimental or in progress, or the change deletes data or touches
+  credentials.
