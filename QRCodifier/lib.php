@@ -259,7 +259,7 @@ function qrc_mutate(callable $fn)
     }
     $fh = @fopen(qrc_items_path(), 'c+b');
     if (!$fh) {
-        qrc_json(['error' => 'Could not open gallery file.'], 500);
+        qrc_json(['error' => 'Could not open library file.'], 500);
     }
     flock($fh, LOCK_EX);
     $raw = stream_get_contents($fh);
@@ -273,7 +273,7 @@ function qrc_mutate(callable $fn)
     if (!is_string($encoded)) {
         flock($fh, LOCK_UN);
         fclose($fh);
-        qrc_json(['error' => 'Could not save gallery (encoding failed). Nothing was changed.'], 500);
+        qrc_json(['error' => 'Could not save library (encoding failed). Nothing was changed.'], 500);
     }
 
     ftruncate($fh, 0);

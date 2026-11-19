@@ -128,7 +128,7 @@ $asset = static function (string $file): string {
         <p id="url-msg" class="msg" aria-live="polite"></p>
 
         <label for="label">Label <span class="opt">optional</span></label>
-        <input id="label" type="text" maxlength="80" placeholder="Shown in the gallery">
+        <input id="label" type="text" maxlength="80" placeholder="Shown in the library">
 
         <button id="generate" type="submit">Generate</button>
       </form>
@@ -153,8 +153,8 @@ $asset = static function (string $file): string {
 
     <section class="gallery">
       <div class="gallery-head">
-        <h2>Gallery <span id="count" class="count"></span></h2>
-        <input id="search" type="search" placeholder="Filter" aria-label="Filter gallery">
+        <h2>Library <span id="count" class="count"></span></h2>
+        <input id="search" type="search" placeholder="Filter" aria-label="Filter library">
       </div>
       <ul id="grid" class="grid"></ul>
       <p id="empty" class="empty" hidden>No codes yet.</p>
