@@ -26,10 +26,10 @@ jobs:
               fwrite(STDERR, "Menagerie owner password is not configured.\n");
               exit(1);
           }
-          $hash = hash('sha256', $password);
+          $hash = password_hash($password, PASSWORD_DEFAULT);
           file_put_contents(
               '.deploy-private/admin-config.php',
-              "<?php\nreturn '" . $hash . "';\n"
+              "<?php\nreturn " . var_export($hash, true) . ";\n"
           );
           PHP
 

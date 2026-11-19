@@ -18,21 +18,40 @@ function menagerie_aliases_path(): string
     return menagerie_data_dir() . DIRECTORY_SEPARATOR . 'aliases.json';
 }
 
+function menagerie_is_valid_admin_hash(string $hash): bool
+{
+    // bcrypt/argon2 from password_hash(), or a legacy 64-char SHA-256 hex digest.
+    return preg_match('/^[a-f0-9]{64}$/', $hash) === 1
+        || (password_get_info($hash)['algo'] ?? null) !== null;
+}
+
 function menagerie_admin_hash(): string
 {
     $environmentHash = getenv('MENAGERIE_ADMIN_HASH');
-    if (is_string($environmentHash) && preg_match('/^[a-f0-9]{64}$/', $environmentHash)) {
+    if (is_string($environmentHash) && menagerie_is_valid_admin_hash($environmentHash)) {
         return $environmentHash;
     }
 
     $configPath = menagerie_data_dir() . DIRECTORY_SEPARATOR . 'admin-config.php';
     if (is_file($configPath)) {
         $configuredHash = require $configPath;
-        if (is_string($configuredHash) && preg_match('/^[a-f0-9]{64}$/', $configuredHash)) {
+        if (is_string($configuredHash) && menagerie_is_valid_admin_hash($configuredHash)) {
             return $configuredHash;
         }
     }
     return '';
+}
+
+function menagerie_verify_admin_password(string $password, string $hash): bool
+{
+    if ($hash === '') {
+        return false;
+    }
+    if (preg_match('/^[a-f0-9]{64}$/', $hash) === 1) {
+        // Legacy format, accepted only until the next deploy writes a bcrypt hash.
+        return hash_equals($hash, hash('sha256', $password));
+    }
+    return password_verify($password, $hash);
 }
 
 function menagerie_ensure_data_dir(): bool

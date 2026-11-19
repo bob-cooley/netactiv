@@ -16,8 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Too many attempts. Try again later.';
         } else {
             $password = isset($_POST['password']) ? (string) $_POST['password'] : '';
-            $candidate = hash('sha256', $password);
-            if (hash_equals($adminHash, $candidate)) {
+            if (menagerie_verify_admin_password($password, $adminHash)) {
                 session_regenerate_id(true);
                 $_SESSION['authenticated'] = true;
                 $_SESSION['csrf'] = bin2hex(random_bytes(24));
