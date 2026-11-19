@@ -474,8 +474,8 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.21/mammoth.browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="vendor/mammoth-1.4.21.browser.min.js"></script>
+<script src="vendor/pdf-3.11.174.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -483,7 +483,7 @@
   // ── PDF.js worker ──────────────────────────────────────────────────────────
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      'vendor/pdf-3.11.174.worker.min.js';
   }
 
   // ── Config ─────────────────────────────────────────────────────────────────
