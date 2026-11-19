@@ -395,7 +395,7 @@
   }
 
   async function remove(item) {
-    if (!confirm('Delete "' + (item.label || item.url) + '" from the gallery?')) return;
+    if (!confirm('Delete "' + (item.label || item.url) + '" from the library?')) return;
     try {
       await api('delete', { id: item.id });
       state.items = state.items.filter((i) => i.id !== item.id);
@@ -419,7 +419,7 @@
       state.items = res.items || [];
     } catch (e) {
       $('empty').hidden = false;
-      $('empty').textContent = 'Could not load gallery: ' + e.message;
+      $('empty').textContent = 'Could not load library: ' + e.message;
       return;
     }
     renderGrid();
