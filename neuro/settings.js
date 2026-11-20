@@ -4,6 +4,7 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=1';
+import { initStates, isCalibrated } from './states.js?v=1';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -16,6 +17,7 @@ const span = (v, lo, hi) => (v <= 50 ? lo + (1 - lo) * (v / 50) : 1 + (hi - 1) *
 whenReady((api) => {
   injectStyles();
   api.enableInteraction(); // tap to fire, focus follows pointer (/neuro only)
+  initStates(api);
   const canvas = document.getElementById('neuro');
   const base = api.defaults;
   const mobile = api.isMobile;
@@ -90,7 +92,7 @@ whenReady((api) => {
       <label class="ns-sel"><span class="ns-label">cursor</span>
         <select data-cursor></select>
       </label>
-      <span class="ns-note ns-standby" data-state-msg>profiles not yet calibrated</span>
+      <span class="ns-note ns-standby" data-state-msg>baseline</span>
     </div>
 
     <div class="ns-foot ns-note">tap or click the network to fire a neuron &middot; double-click a slider to reset it &middot; esc closes</div>
@@ -133,8 +135,13 @@ whenReady((api) => {
   panel.querySelectorAll('[data-state]').forEach((sel) => sel.addEventListener('change', () => {
     const mood = panel.querySelector('[data-state="mood"]').value;
     const altered = panel.querySelector('[data-state="altered"]').value;
-    const picked = [mood, altered].filter(Boolean).join(' + ');
-    stateMsg.textContent = picked ? `${picked.toLowerCase()}: not yet calibrated` : 'profiles not yet calibrated';
+    const live = [mood, altered].filter((n) => n && isCalibrated(n));
+    const pending = [mood, altered].filter((n) => n && !isCalibrated(n));
+    const parts = [];
+    if (live.length) parts.push(`${live[0].toLowerCase()}: active`);
+    if (pending.length) parts.push(`${pending.join(' + ').toLowerCase()}: not yet calibrated`);
+    stateMsg.textContent = parts.length ? parts.join(' / ') : 'baseline';
+    stateMsg.classList.toggle('live', live.length > 0);
     window.dispatchEvent(new CustomEvent('neuro:state', { detail: { mood, altered } }));
   }));
 
@@ -301,6 +308,7 @@ function injectStyles() {
   .ns-sel select:focus { outline: none; border-color: var(--ns-teal); }
   .ns-sel option { background: #0b0b0f; }
   .ns-standby { flex-basis: 100%; color: #ffae5c; }
+  .ns-standby.live { color: var(--ns-teal); }
   .ns-foot { margin-top: 12px; }
 
   @media (max-width: 640px) {

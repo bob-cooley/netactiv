@@ -115,6 +115,15 @@ scene.fog = new THREE.FogExp2(PALETTE.bg, CFG.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 220);
 
+// State modifiers layered on top of the user's settings. All neutral by default,
+// so pages that never touch them (the homepage) render exactly as designed.
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0 };
+const USER = { gain: 1, sat: 1 };
+const BASE_PULSE = new THREE.Color('#7ff3ff');
+const MOD_PULSE = new THREE.Color('#ffc84a');
+let sparkBase = 1;
+let appliedFov = 62;
+
 // ── Shared uniforms ─────────────────────────────────────────────────────────
 const shared = {
   uTime: { value: 0 },
@@ -874,7 +883,7 @@ function fireNeuron(N, t) {
 
 function stepSignals(t, dt) {
   // spontaneous activity keeps the network alive as the camera moves on
-  const pSpont = dt / CFG.spontaneousEvery;
+  const pSpont = dt / CFG.spontaneousEvery * MOD.spont;
   for (const N of neurons.values()) if (Math.random() < pSpont) fireNeuron(N, t);
   while (events.length && events[0].t <= t) {
     const e = events.shift();
@@ -1228,7 +1237,7 @@ function frame(now) {
   const dt = Math.min(rawDt, 0.05);
   last = now;
   time += dt;
-  travel += dt * CFG.speed;
+  travel += dt * CFG.speed * MOD.speed;
   shared.uTime.value = time;
 
   ensureChunks();
@@ -1263,6 +1272,17 @@ function frame(now) {
       s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.25));
       s.halo.material.opacity = 0.35 + flash * 0.25;
     }
+  }
+
+  // apply state modifiers
+  finish.uniforms.uGain.value = USER.gain * MOD.gain;
+  finish.uniforms.uSat.value = USER.sat * MOD.sat;
+  sparkMat.uniforms.uBoost.value = sparkBase * MOD.spark;
+  PALETTE.pulse.copy(BASE_PULSE).lerp(MOD_PULSE, Math.min(1, Math.max(0, MOD.pulseMix)));
+  if (Math.abs(62 + MOD.fov - appliedFov) > 0.01) {
+    appliedFov = 62 + MOD.fov;
+    camera.fov = appliedFov;
+    camera.updateProjectionMatrix();
   }
 
   if (dofPass.enabled) updateFocus(dt);
@@ -1303,7 +1323,7 @@ function reseed(seed) {
 function rewire() {
   CFG.maxTargets = Math.min(8, Math.max(1, Math.round(3 * S.connections)));
   CFG.junctionReach = 4.5 * Math.sqrt(S.connections);
-  sparkMat.uniforms.uBoost.value = 0.6 + 0.4 * S.connections; // junction sparks read more as links grow
+  sparkBase = 0.6 + 0.4 * S.connections; // junction sparks read more as links grow
   const all = [...neurons.values()];
   for (const N of all) N.out = [];
   connectNeurons(all);
@@ -1319,8 +1339,29 @@ window.__neuro = {
   reseed,
   setSpeed: (v) => { CFG.speed = Math.max(0, v); },
   getSpeed: () => CFG.speed,
-  setSaturation: (v) => { finish.uniforms.uSat.value = Math.max(0, v); },
-  setGain: (v) => { finish.uniforms.uGain.value = Math.max(0, v); },
+  setSaturation: (v) => { USER.sat = Math.max(0, v); },
+  setGain: (v) => { USER.gain = Math.max(0, v); },
+  // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
+  setMods: (o) => { Object.assign(MOD, o); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0 }); },
+  setModColor: (hex) => { MOD_PULSE.set(hex); },
+  burst: (n, spread = 0.03) => {
+    camera.getWorldDirection(fwd);
+    const cand = [];
+    for (const N of neurons.values()) {
+      toSoma.subVectors(N.centre, camera.position);
+      const d = toSoma.dot(fwd);
+      if (d < 5 || d > 45) continue;
+      const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
+      cand.push({ N, score: lateral + d * 0.004 });
+    }
+    cand.sort((a, b) => a.score - b.score);
+    cand.slice(0, n).forEach((c, i) => {
+      c.N.lastFire = -1000;
+      schedule({ t: time + i * spread * Math.random() * 2, kind: 'fire', id: c.N.id });
+    });
+    return Math.min(n, cand.length);
+  },
   // structure: multipliers, 1 = original. density/thickness/branching rebuild; connections rewire live
   setStructure: (o) => { for (const k of ['density', 'thickness', 'branching']) if (o[k] != null) S[k] = o[k]; rebuild(); },
   setConnections: (v) => { S.connections = v; rewire(); },
