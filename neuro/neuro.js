@@ -1165,7 +1165,7 @@ function enableInteraction() {
     IX.mouse = e.pointerType === 'mouse';
     if (IX.mouse) IX.lastMove = time;
   });
-  canvas.addEventListener('pointerleave', () => { IX.lastMove = -1e9; IX.hover = null; canvas.style.cursor = ''; });
+  canvas.addEventListener('pointerleave', () => { IX.lastMove = -1e9; IX.hover = null; canvas.classList.remove('nx-over'); });
 }
 
 function updateFocus(dt) {
@@ -1181,7 +1181,7 @@ function updateFocus(dt) {
     const N = pickSoma(IX.px, IX.py, 170);
     if (N) IX.hover = N;
     if (IX.hover && !neurons.has(IX.hover.id)) IX.hover = null;
-    canvas.style.cursor = N ? 'pointer' : '';
+    canvas.classList.toggle('nx-over', !!N); // styled by the /neuro cursor layer
     if (IX.hover) driven = depthAlongView(IX.hover);
   } else if (IX.on && !IX.lock) {
     IX.hover = null;

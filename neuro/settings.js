@@ -3,6 +3,8 @@
 // Talks to the engine through window.__neuro (see neuro.js).
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
+import { initCursors } from './cursors.js?v=1';
+
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
   setTimeout(() => whenReady(cb), 50);
@@ -85,12 +87,16 @@ whenReady((api) => {
       <label class="ns-sel"><span class="ns-label">altered state</span>
         <select data-state="altered"><option value="">baseline</option>${ALTERED.map((m) => `<option>${m}</option>`).join('')}</select>
       </label>
+      <label class="ns-sel"><span class="ns-label">cursor</span>
+        <select data-cursor></select>
+      </label>
       <span class="ns-note ns-standby" data-state-msg>profiles not yet calibrated</span>
     </div>
 
     <div class="ns-foot ns-note">tap or click the network to fire a neuron &middot; double-click a slider to reset it &middot; esc closes</div>
   `;
   document.body.appendChild(panel);
+  initCursors(panel.querySelector('[data-cursor]'), canvas);
 
   const sliders = [
     ...DISPLAY.map((d) => makeSlider(d, panel.querySelector('[data-group="display"]'))),
@@ -290,11 +296,11 @@ function injectStyles() {
   .ns-sel { display: flex; flex-direction: column; gap: 5px; }
   .ns-sel select {
     font-family: var(--ns-mono); font-size: 13px; color: var(--ns-text);
-    background: rgba(0,0,0,0.4); border: 1px solid var(--ns-mag-dim); padding: 6px 8px; min-width: 210px; cursor: pointer;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--ns-mag-dim); padding: 6px 8px; min-width: 190px; cursor: pointer;
   }
   .ns-sel select:focus { outline: none; border-color: var(--ns-teal); }
   .ns-sel option { background: #0b0b0f; }
-  .ns-standby { color: #ffae5c; padding-bottom: 7px; }
+  .ns-standby { flex-basis: 100%; color: #ffae5c; }
   .ns-foot { margin-top: 12px; }
 
   @media (max-width: 640px) {
