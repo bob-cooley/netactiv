@@ -280,23 +280,24 @@ function injectStyles() {
     --ns-mono: 'Space Mono', ui-monospace, Menlo, monospace;
   }
   .ns-gear {
+    --ns-icon: rgba(255,255,255,0.88);
     position: fixed; top: 18px; right: 18px; z-index: 40;
     width: 44px; height: 44px; padding: 6px; border-radius: 50%;
-    background: rgba(7,7,7,0.25); border: 1px solid var(--ns-mag-dim); cursor: pointer;
+    background: rgba(7,7,7,0.25); border: 1px solid rgba(255,255,255,0.4); cursor: pointer;
     transition: border-color .2s, background .2s;
   }
   .ns-gear svg { width: 100%; height: 100%; display: block; }
-  .ns-gear-rot { stroke: var(--ns-mag); stroke-width: 1.6; fill: rgba(7,7,7,0.85); transform-origin: 24px 24px; transition: transform .6s ease; }
-  .ns-gear-hole { fill: none; stroke: var(--ns-mag); stroke-width: 1.6; }
+  .ns-gear-rot { stroke: var(--ns-icon); stroke-width: 1.6; fill: rgba(7,7,7,0.85); transform-origin: 24px 24px; transition: transform .6s ease; }
+  .ns-gear-hole { fill: none; stroke: var(--ns-icon); stroke-width: 1.6; }
   .ns-gear:hover .ns-gear-rot, .ns-gear.on .ns-gear-rot { transform: rotate(72deg); }
   .ns-info-btn { right: 72px; }
-  .ns-info-ring, .ns-info-stem { fill: none; stroke: var(--ns-mag); stroke-width: 2.4; stroke-linecap: round; }
-  .ns-info-dot { fill: var(--ns-mag); }
+  .ns-info-ring, .ns-info-stem { fill: none; stroke: var(--ns-icon); stroke-width: 2.4; stroke-linecap: round; }
+  .ns-info-dot { fill: var(--ns-icon); }
   .ns-info { width: min(540px, calc(100vw - 24px)); }
   .ns-info-body p { font-size: 15px; line-height: 1.65; letter-spacing: .02em; color: var(--ns-text); margin: 0 0 12px; }
   .ns-info-body p:last-child { margin-bottom: 2px; }
   .ns-info-body i { color: var(--ns-teal); font-style: italic; }
-  .ns-gear:hover, .ns-gear.on { border-color: var(--ns-mag); background: rgba(158,78,116,0.10); }
+  .ns-gear:hover, .ns-gear.on { border-color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.08); }
 
   .ns-panel {
     position: fixed; z-index: 35; left: 50%; top: 50%; transform: translate(-50%, -50%);
