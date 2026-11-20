@@ -460,7 +460,8 @@ class TubeBatch {
     const n = points.length;
     if (n < 2) return;
     const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), tmp = new THREE.Vector3();
-    const maxR = radii[0];
+    const RS = S.thickness;
+    const maxR = radii[0] * RS;
     const segs = maxR > 0.14 ? 8 : maxR > 0.05 ? 6 : 4;
     const base = this.vcount;
     // initial normal perpendicular to first tangent
@@ -473,7 +474,7 @@ class TubeBatch {
       // parallel transport
       N.addScaledVector(T, -N.dot(T)).normalize();
       B.crossVectors(T, N);
-      const p = points[i], r = radii[i];
+      const p = points[i], r = radii[i] * RS;
       for (let s = 0; s < segs; s++) {
         const ang = (s / segs) * Math.PI * 2;
         const c = Math.cos(ang), sn = Math.sin(ang);
@@ -539,7 +540,7 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
     pts.push(p.clone()); rads.push(r); als.push(a);
     if (ARBOR && (i & 1)) ARBOR.push(p.x, p.y, p.z, a);
 
-    if (depth < 5 && i > 3 && rand() < 0.075 + depth * 0.01) {
+    if (depth < (S.branching > 1.2 ? 4 : 5) && i > 3 && rand() < (0.075 + depth * 0.01) * S.branching && BUDGET-- > 0) {
       const nd = d.clone().addScaledVector(randUnit(jitter), 0.95).normalize();
       growBranch(batch, synapses, p, nd, r * rr(0.6, 0.85), depth + 1, a, seed, tint, r, d);
     }
@@ -592,6 +593,11 @@ function buildSomaGeometry(radius, dirs) {
 const chunks = new Map(); // index -> { group, somas: [] }
 const nucleusGeo = new THREE.IcosahedronGeometry(1, 3);
 let ARBOR = null;            // while growing a neuron: flat [x, y, z, along, ...] samples
+let BUDGET = 0;              // forks left for the neuron being grown (guards high branching)
+// Structural multipliers, 1 = the original network. Set from the /neuro settings panel.
+const S = { density: 1, thickness: 1, branching: 1, connections: 1 };
+const pulseSpeed = () => CFG.pulseSpeed * Math.sqrt(S.thickness); // thicker fibres conduct faster
+const transmitP = () => Math.min(CFG.transmitP, 1.2 / CFG.maxTargets); // keep cascades bounded
 let nextNeuronId = 0;
 const neurons = new Map();   // id -> soma record (live chunks only)
 const fibreGeoms = [];
@@ -608,7 +614,7 @@ function generateChunk(k) {
   const c = new THREE.Vector3();
 
   // neurons
-  const count = ri(CFG.neuronsPerChunk[0], CFG.neuronsPerChunk[1]);
+  const count = Math.max(1, Math.round(ri(CFG.neuronsPerChunk[0], CFG.neuronsPerChunk[1]) * S.density));
   for (let n = 0; n < count; n++) {
     const z = rr(z1, z0);
     pathAt(z, c);
@@ -617,7 +623,8 @@ function generateChunk(k) {
     const centre = new THREE.Vector3(c.x + Math.cos(ang) * dist, c.y + Math.sin(ang) * dist * 0.75, z);
     const seed = rand();
     const tint = rand() < 0.12 ? rr(0.3, 0.7) : 0;
-    const somaR = rr(0.4, 0.75);
+    const somaR = rr(0.4, 0.75) * Math.pow(S.thickness, 0.4);
+    BUDGET = 320;
     const nPrim = ri(5, 9);
     const dirs = [];
     const nid = nextNeuronId++;
@@ -677,7 +684,7 @@ function generateChunk(k) {
   }
 
   // passing fibres from neurons outside the tunnel: long, thin, wandering
-  for (let i = 0; i < CFG.passingFibres; i++) {
+  for (let i = 0; i < Math.round(CFG.passingFibres * S.density); i++) {
     pathAt(rr(z1, z0), c);
     const start = new THREE.Vector3(c.x + rr(-26, 26), c.y + rr(-20, 20), rr(z1, z0));
     // keep the immediate camera corridor reasonably clear
@@ -695,7 +702,7 @@ function generateChunk(k) {
 
   // synapse sparks + background dust
   const pts = [], cols = [], sizes = [], phases = [];
-  const extra = CFG.synapsesPerChunk;
+  const extra = Math.round(CFG.synapsesPerChunk * S.density);
   for (let i = 0; i < extra; i++) {
     // scatter extra sparks onto fibre vertices so they sit on the network
     const vi = ri(0, geo.attributes.position.count - 1);
@@ -710,7 +717,7 @@ function generateChunk(k) {
     sizes.push(s.kind === 1 ? rr(0.3, 0.6) : rr(0.16, 0.45));
     phases.push(rand());
   }
-  for (let i = 0; i < CFG.dustPerChunk; i++) {
+  for (let i = 0; i < Math.round(CFG.dustPerChunk * S.density); i++) {
     pathAt(rr(z1, z0), c);
     pts.push(c.x + rr(-30, 30), c.y + rr(-22, 22), rr(z1, z0));
     const b = rr(0.08, 0.3);
@@ -745,7 +752,8 @@ function addRoot(batch, centre, dir, somaR, startDist, r0, seed, tint) {
     const t = i / (N - 1);
     pts.push(centre.clone().addScaledVector(dir, d0 + (startDist - d0) * t));
     const e = t * t * (3 - 2 * t);
-    rads.push(somaR * 0.75 + (r0 - somaR * 0.75) * e);
+    const rb = somaR * 0.75 / S.thickness; // tube radii are scaled by thickness in TubeBatch
+    rads.push(rb + (r0 - rb) * e);
     als.push(t - 1);
   }
   batch.add(pts, rads, als, seed, tint);
@@ -854,10 +862,10 @@ function fireNeuron(N, t) {
   N.slot = (N.slot + 1) & 3;
   fireTex.needsUpdate = true;
   for (const j of N.out) {
-    const arrive = t + j.along / CFG.pulseSpeed;
+    const arrive = t + j.along / pulseSpeed();
     schedule({ t: arrive, kind: 'spark', pos: j.pos });
-    if (Math.random() < CFG.transmitP) {
-      schedule({ t: arrive + CFG.synapticDelay + j.gap / CFG.pulseSpeed, kind: 'fire', id: j.target });
+    if (Math.random() < transmitP()) {
+      schedule({ t: arrive + CFG.synapticDelay + j.gap / pulseSpeed(), kind: 'fire', id: j.target });
     }
   }
 }
@@ -1165,20 +1173,36 @@ function kickStart(t0) {
 }
 kickStart(0);
 
-// Rebuild the world from a new seed, from the start of the path.
-function reseed(seed) {
-  CFG.seed = (Math.abs(Math.floor(Number(seed))) || 1) % 1000000000;
+// Regenerate every live chunk in place (same seed, current structure settings).
+function rebuild() {
   for (const k of [...chunks.keys()]) disposeChunk(k);
   events.length = 0;
   fireData.fill(-1000);
   fireTex.needsUpdate = true;
   sparkGeo.attributes.aBirth.array.fill(-1000);
   sparkGeo.attributes.aBirth.needsUpdate = true;
+  shared.uPulseSpeed.value = pulseSpeed();
+  const cur = Math.floor(travel / CFG.chunkLen);
+  for (let k = Math.max(0, cur - CFG.chunksBehind); k <= cur + CFG.chunksAhead; k++) generateChunk(k);
+  kickStart(time);
+}
+
+// Rebuild the world from a new seed, from the start of the path.
+function reseed(seed) {
+  CFG.seed = (Math.abs(Math.floor(Number(seed))) || 1) % 1000000000;
   travel = 0;
   focus = 14.0;
-  for (let k = 0; k <= CFG.chunksAhead; k++) generateChunk(k);
-  kickStart(time);
+  rebuild();
   return CFG.seed;
+}
+
+// Re-derive junctions without regenerating geometry.
+function rewire() {
+  CFG.maxTargets = Math.min(8, Math.max(1, Math.round(3 * S.connections)));
+  CFG.junctionReach = 4.5 * Math.sqrt(S.connections);
+  const all = [...neurons.values()];
+  for (const N of all) N.out = [];
+  connectNeurons(all);
 }
 requestAnimationFrame(frame);
 
@@ -1193,6 +1217,11 @@ window.__neuro = {
   getSpeed: () => CFG.speed,
   setSaturation: (v) => { finish.uniforms.uSat.value = Math.max(0, v); },
   setGain: (v) => { finish.uniforms.uGain.value = Math.max(0, v); },
+  // structure: multipliers, 1 = original. density/thickness/branching rebuild; connections rewire live
+  setStructure: (o) => { for (const k of ['density', 'thickness', 'branching']) if (o[k] != null) S[k] = o[k]; rebuild(); },
+  setConnections: (v) => { S.connections = v; rewire(); },
+  getStructure: () => ({ ...S }),
+  isMobile: IS_MOBILE,
   getFps: () => fps,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
