@@ -1014,14 +1014,18 @@ composer.addPass(dofPass);
 composer.addPass(bloom);
 
 const finish = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: shared.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  uniforms: {
+    tDiffuse: { value: null }, uTime: shared.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uSat: { value: 1.0 },   // colour intensity: 0 = monochrome, 1 = as designed, 2 = doubled
+    uGain: { value: 1.0 },  // overall intensity multiplier, before tone mapping
+  },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
   `,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform float uTime;
+    uniform float uTime, uSat, uGain;
     uniform vec2 uRes;
     varying vec2 vUv;
     float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -1037,6 +1041,8 @@ const finish = new ShaderPass({
       // deep-blue lift in the shadows, vignette, grain
       col += vec3(0.002, 0.003, 0.012) * (1.0 - r * 2.0);
       col *= smoothstep(0.95, 0.18, r * 1.6);
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = max(mix(vec3(lum), col, uSat), 0.0) * uGain;
       col += (h(vUv * uRes + fract(uTime) * 100.0) - 0.5) * 0.018;
       gl_FragColor = vec4(col, 1.0);
     }
@@ -1064,6 +1070,7 @@ document.addEventListener('visibilitychange', () => { paused = document.hidden; 
 
 // ── Loop ────────────────────────────────────────────────────────────────────
 let travel = parseFloat(params.get('z') || '0'); // distance along -Z
+let fps = 60;
 let last = performance.now();
 let time = 0;
 const camPos = new THREE.Vector3(), look = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -1105,7 +1112,9 @@ for (let k = 0; k <= CFG.chunksAhead; k++) generateChunk(k);
 function frame(now) {
   requestAnimationFrame(frame);
   if (paused) return;
-  const dt = Math.min((now - last) / 1000, 0.05);
+  const rawDt = (now - last) / 1000;
+  if (rawDt > 0) fps += (1 / rawDt - fps) * 0.05;
+  const dt = Math.min(rawDt, 0.05);
   last = now;
   time += dt;
   travel += dt * CFG.speed;
@@ -1150,15 +1159,41 @@ function frame(now) {
 }
 
 canvas.classList.add('ready');
-{
+function kickStart(t0) {
   const first = [...neurons.values()].sort(() => Math.random() - 0.5).slice(0, 3);
-  first.forEach((N, i) => schedule({ t: 0.6 + i * 1.3, kind: 'fire', id: N.id }));
+  first.forEach((N, i) => schedule({ t: t0 + 0.6 + i * 1.3, kind: 'fire', id: N.id }));
+}
+kickStart(0);
+
+// Rebuild the world from a new seed, from the start of the path.
+function reseed(seed) {
+  CFG.seed = (Math.abs(Math.floor(Number(seed))) || 1) % 1000000000;
+  for (const k of [...chunks.keys()]) disposeChunk(k);
+  events.length = 0;
+  fireData.fill(-1000);
+  fireTex.needsUpdate = true;
+  sparkGeo.attributes.aBirth.array.fill(-1000);
+  sparkGeo.attributes.aBirth.needsUpdate = true;
+  travel = 0;
+  focus = 14.0;
+  for (let k = 0; k <= CFG.chunksAhead; k++) generateChunk(k);
+  kickStart(time);
+  return CFG.seed;
 }
 requestAnimationFrame(frame);
 
 // debug hook for capture tooling
 window.__neuro = {
   CFG,
+  // ── control surface (used by /neuro settings panel; defaults leave behaviour unchanged)
+  defaults: { speed: CFG.speed, sat: 1, gain: 1 },
+  getSeed: () => CFG.seed,
+  reseed,
+  setSpeed: (v) => { CFG.speed = Math.max(0, v); },
+  getSpeed: () => CFG.speed,
+  setSaturation: (v) => { finish.uniforms.uSat.value = Math.max(0, v); },
+  setGain: (v) => { finish.uniforms.uGain.value = Math.max(0, v); },
+  getFps: () => fps,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
   fireAll: () => { for (const N of neurons.values()) { N.lastFire = -1000; fireNeuron(N, time); } },
