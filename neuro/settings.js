@@ -13,6 +13,7 @@ const span = (v, lo, hi) => (v <= 50 ? lo + (1 - lo) * (v / 50) : 1 + (hi - 1) *
 
 whenReady((api) => {
   injectStyles();
+  api.enableInteraction(); // tap to fire, focus follows pointer (/neuro only)
   const canvas = document.getElementById('neuro');
   const base = api.defaults;
   const mobile = api.isMobile;
@@ -87,7 +88,7 @@ whenReady((api) => {
       <span class="ns-note ns-standby" data-state-msg>profiles not yet calibrated</span>
     </div>
 
-    <div class="ns-foot ns-note">double-click a slider to reset it &middot; esc closes</div>
+    <div class="ns-foot ns-note">tap or click the network to fire a neuron &middot; double-click a slider to reset it &middot; esc closes</div>
   `;
   document.body.appendChild(panel);
 

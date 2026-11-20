@@ -1090,8 +1090,109 @@ let camOverride = null; // debug: frame a specific soma
 
 // Autofocus: rack toward the cell body nearest the centre of frame; when none is
 // close to centre, drift slowly so focus still wanders through the layers.
+// ── Interaction (opt-in; /neuro enables it, the homepage background does not) ──
+const IX = {
+  on: false,
+  lock: null,          // { rec, until } focus held on a tapped neuron
+  hover: null,         // neuron under the mouse cursor
+  px: 0, py: 0,        // pointer position, CSS px
+  lastMove: -1e9,      // time of last mouse move
+  mouse: false,        // pointer is a mouse (focus-follows-cursor is desktop only)
+};
+const projV = new THREE.Vector3();
+
+// Nearest live soma to a screen point; prefers nearer neurons slightly.
+function pickSoma(px, py, maxPx) {
+  let best = null, bestScore = Infinity;
+  for (const N of neurons.values()) {
+    const dist = N.centre.distanceTo(camera.position);
+    if (dist > 70) continue;
+    projV.copy(N.centre).project(camera);
+    if (projV.z > 1 || projV.z < -1) continue;
+    const sx = (projV.x * 0.5 + 0.5) * innerWidth;
+    const sy = (-projV.y * 0.5 + 0.5) * innerHeight;
+    const d = Math.hypot(sx - px, sy - py);
+    if (d > maxPx) continue;
+    const score = d + dist * 1.5;
+    if (score < bestScore) { bestScore = score; best = N; }
+  }
+  return best;
+}
+
+function depthAlongView(N) {
+  return Math.max(2, toSoma.subVectors(N.centre, camera.position).dot(fwd));
+}
+
+function tapRing(x, y, hit) {
+  const r = document.createElement('div');
+  r.className = 'nx-tap' + (hit ? ' hit' : '');
+  r.style.left = x + 'px';
+  r.style.top = y + 'px';
+  document.body.appendChild(r);
+  setTimeout(() => r.remove(), 900);
+}
+
+function enableInteraction() {
+  if (IX.on) return;
+  IX.on = true;
+  const st = document.createElement('style');
+  st.textContent = `
+    .nx-tap { position: fixed; z-index: 30; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+      border: 1.5px solid rgba(0,200,224,0.9); pointer-events: none; animation: nx-tap .9s ease-out forwards; }
+    .nx-tap.hit { border-color: rgba(127,243,255,1); box-shadow: 0 0 12px rgba(0,200,224,0.8); }
+    @keyframes nx-tap { from { transform: scale(0.4); opacity: 1; } to { transform: scale(4); opacity: 0; } }`;
+  document.head.appendChild(st);
+
+  let down = null;
+  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    const quick = performance.now() - down.t < 350;
+    down = null;
+    if (moved > 12 || !quick) return;
+    // tap: fire the neuron nearest the touch point, bypassing its rest period
+    const N = pickSoma(e.clientX, e.clientY, e.pointerType === 'mouse' ? 160 : 220) || pickSoma(e.clientX, e.clientY, 420);
+    tapRing(e.clientX, e.clientY, !!N);
+    if (!N) return;
+    N.lastFire = -1000;
+    fireNeuron(N, time);
+    emitSpark(N.centre, time);
+    IX.lock = { rec: N, until: time + (e.pointerType === 'mouse' ? 2.5 : 6) };
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    IX.px = e.clientX; IX.py = e.clientY;
+    IX.mouse = e.pointerType === 'mouse';
+    if (IX.mouse) IX.lastMove = time;
+  });
+  canvas.addEventListener('pointerleave', () => { IX.lastMove = -1e9; IX.hover = null; canvas.style.cursor = ''; });
+}
+
 function updateFocus(dt) {
   camera.getWorldDirection(fwd);
+
+  // 1. a tapped neuron holds focus for a few seconds
+  if (IX.lock && (time > IX.lock.until || !neurons.has(IX.lock.rec.id))) IX.lock = null;
+  let driven = null;
+  if (IX.lock) driven = depthAlongView(IX.lock.rec);
+
+  // 2. desktop: focus follows the neuron under the cursor while the mouse is active
+  if (driven === null && IX.on && IX.mouse && time - IX.lastMove < 5) {
+    const N = pickSoma(IX.px, IX.py, 170);
+    if (N) IX.hover = N;
+    if (IX.hover && !neurons.has(IX.hover.id)) IX.hover = null;
+    canvas.style.cursor = N ? 'pointer' : '';
+    if (IX.hover) driven = depthAlongView(IX.hover);
+  } else if (IX.on && !IX.lock) {
+    IX.hover = null;
+  }
+  if (driven !== null) {
+    focus += (driven - focus) * Math.min(dt * 2.2, 1);  // pointer-driven focus racks faster
+    dofPass.uniforms.uFocus.value = focus;
+    return;
+  }
+
+  // 3. otherwise: autofocus on the soma nearest frame centre
   let best = null, bestScore = 0.32;
   for (const ch of chunks.values()) {
     for (const s of ch.somas) {
@@ -1226,6 +1327,7 @@ window.__neuro = {
   getStructure: () => ({ ...S }),
   isMobile: IS_MOBILE,
   getFps: () => fps,
+  enableInteraction,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
   fireAll: () => { for (const N of neurons.values()) { N.lastFire = -1000; fireNeuron(N, time); } },
