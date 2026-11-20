@@ -115,6 +115,15 @@ scene.fog = new THREE.FogExp2(PALETTE.bg, CFG.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 220);
 
+// State modifiers layered on top of the user's settings. All neutral by default,
+// so pages that never touch them (the homepage) render exactly as designed.
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 };
+const USER = { gain: 1, sat: 1 };
+const BASE_PULSE = new THREE.Color('#7ff3ff');
+const MOD_PULSE = new THREE.Color('#ffc84a');
+let sparkBase = 1;
+let appliedFov = 62;
+
 // ── Shared uniforms ─────────────────────────────────────────────────────────
 const shared = {
   uTime: { value: 0 },
@@ -460,7 +469,8 @@ class TubeBatch {
     const n = points.length;
     if (n < 2) return;
     const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), tmp = new THREE.Vector3();
-    const maxR = radii[0];
+    const RS = S.thickness;
+    const maxR = radii[0] * RS;
     const segs = maxR > 0.14 ? 8 : maxR > 0.05 ? 6 : 4;
     const base = this.vcount;
     // initial normal perpendicular to first tangent
@@ -473,7 +483,7 @@ class TubeBatch {
       // parallel transport
       N.addScaledVector(T, -N.dot(T)).normalize();
       B.crossVectors(T, N);
-      const p = points[i], r = radii[i];
+      const p = points[i], r = radii[i] * RS;
       for (let s = 0; s < segs; s++) {
         const ang = (s / segs) * Math.PI * 2;
         const c = Math.cos(ang), sn = Math.sin(ang);
@@ -539,7 +549,7 @@ function growBranch(batch, synapses, start, dir, radius, depth, along, seed, tin
     pts.push(p.clone()); rads.push(r); als.push(a);
     if (ARBOR && (i & 1)) ARBOR.push(p.x, p.y, p.z, a);
 
-    if (depth < 5 && i > 3 && rand() < 0.075 + depth * 0.01) {
+    if (depth < (S.branching > 1.2 ? 4 : 5) && i > 3 && rand() < (0.075 + depth * 0.01) * S.branching && BUDGET-- > 0) {
       const nd = d.clone().addScaledVector(randUnit(jitter), 0.95).normalize();
       growBranch(batch, synapses, p, nd, r * rr(0.6, 0.85), depth + 1, a, seed, tint, r, d);
     }
@@ -592,6 +602,13 @@ function buildSomaGeometry(radius, dirs) {
 const chunks = new Map(); // index -> { group, somas: [] }
 const nucleusGeo = new THREE.IcosahedronGeometry(1, 3);
 let ARBOR = null;            // while growing a neuron: flat [x, y, z, along, ...] samples
+let BUDGET = 0;              // forks left for the neuron being grown (guards high branching)
+// Structural multipliers, 1 = the original network. Set from the /neuro settings panel.
+const S = { density: 1, thickness: 1, branching: 1, connections: 1 };
+const pulseSpeed = () => CFG.pulseSpeed * Math.sqrt(S.thickness); // thicker fibres conduct faster
+// more links -> more excitable network (expected triggers per firing: 1 link 0.34, 3 links 1.0, 8 links 2.0);
+// the refractory period stops it locking up. 3 links (default) keeps the original 0.34.
+const transmitP = () => Math.min(CFG.transmitP, 2.0 / CFG.maxTargets);
 let nextNeuronId = 0;
 const neurons = new Map();   // id -> soma record (live chunks only)
 const fibreGeoms = [];
@@ -608,7 +625,7 @@ function generateChunk(k) {
   const c = new THREE.Vector3();
 
   // neurons
-  const count = ri(CFG.neuronsPerChunk[0], CFG.neuronsPerChunk[1]);
+  const count = Math.max(1, Math.round(ri(CFG.neuronsPerChunk[0], CFG.neuronsPerChunk[1]) * S.density));
   for (let n = 0; n < count; n++) {
     const z = rr(z1, z0);
     pathAt(z, c);
@@ -617,7 +634,8 @@ function generateChunk(k) {
     const centre = new THREE.Vector3(c.x + Math.cos(ang) * dist, c.y + Math.sin(ang) * dist * 0.75, z);
     const seed = rand();
     const tint = rand() < 0.12 ? rr(0.3, 0.7) : 0;
-    const somaR = rr(0.4, 0.75);
+    const somaR = rr(0.4, 0.75) * Math.pow(S.thickness, 0.4);
+    BUDGET = 320;
     const nPrim = ri(5, 9);
     const dirs = [];
     const nid = nextNeuronId++;
@@ -677,7 +695,7 @@ function generateChunk(k) {
   }
 
   // passing fibres from neurons outside the tunnel: long, thin, wandering
-  for (let i = 0; i < CFG.passingFibres; i++) {
+  for (let i = 0; i < Math.round(CFG.passingFibres * S.density); i++) {
     pathAt(rr(z1, z0), c);
     const start = new THREE.Vector3(c.x + rr(-26, 26), c.y + rr(-20, 20), rr(z1, z0));
     // keep the immediate camera corridor reasonably clear
@@ -695,7 +713,7 @@ function generateChunk(k) {
 
   // synapse sparks + background dust
   const pts = [], cols = [], sizes = [], phases = [];
-  const extra = CFG.synapsesPerChunk;
+  const extra = Math.round(CFG.synapsesPerChunk * S.density);
   for (let i = 0; i < extra; i++) {
     // scatter extra sparks onto fibre vertices so they sit on the network
     const vi = ri(0, geo.attributes.position.count - 1);
@@ -710,7 +728,7 @@ function generateChunk(k) {
     sizes.push(s.kind === 1 ? rr(0.3, 0.6) : rr(0.16, 0.45));
     phases.push(rand());
   }
-  for (let i = 0; i < CFG.dustPerChunk; i++) {
+  for (let i = 0; i < Math.round(CFG.dustPerChunk * S.density); i++) {
     pathAt(rr(z1, z0), c);
     pts.push(c.x + rr(-30, 30), c.y + rr(-22, 22), rr(z1, z0));
     const b = rr(0.08, 0.3);
@@ -745,7 +763,8 @@ function addRoot(batch, centre, dir, somaR, startDist, r0, seed, tint) {
     const t = i / (N - 1);
     pts.push(centre.clone().addScaledVector(dir, d0 + (startDist - d0) * t));
     const e = t * t * (3 - 2 * t);
-    rads.push(somaR * 0.75 + (r0 - somaR * 0.75) * e);
+    const rb = somaR * 0.75 / S.thickness; // tube radii are scaled by thickness in TubeBatch
+    rads.push(rb + (r0 - rb) * e);
     als.push(t - 1);
   }
   batch.add(pts, rads, als, seed, tint);
@@ -854,17 +873,17 @@ function fireNeuron(N, t) {
   N.slot = (N.slot + 1) & 3;
   fireTex.needsUpdate = true;
   for (const j of N.out) {
-    const arrive = t + j.along / CFG.pulseSpeed;
+    const arrive = t + j.along / pulseSpeed();
     schedule({ t: arrive, kind: 'spark', pos: j.pos });
-    if (Math.random() < CFG.transmitP) {
-      schedule({ t: arrive + CFG.synapticDelay + j.gap / CFG.pulseSpeed, kind: 'fire', id: j.target });
+    if (Math.random() < transmitP() * MOD.transmit) {
+      schedule({ t: arrive + CFG.synapticDelay + j.gap / pulseSpeed(), kind: 'fire', id: j.target });
     }
   }
 }
 
 function stepSignals(t, dt) {
   // spontaneous activity keeps the network alive as the camera moves on
-  const pSpont = dt / CFG.spontaneousEvery;
+  const pSpont = dt / CFG.spontaneousEvery * MOD.spont;
   for (const N of neurons.values()) if (Math.random() < pSpont) fireNeuron(N, t);
   while (events.length && events[0].t <= t) {
     const e = events.shift();
@@ -880,10 +899,10 @@ sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPA
 sparkGeo.setAttribute('aBirth', new THREE.BufferAttribute(new Float32Array(SPARKS).fill(-1000), 1));
 let sparkHead = 0;
 const sparkMat = new THREE.ShaderMaterial({
-  uniforms: { ...shared, uColor: { value: PALETTE.pulse } },
+  uniforms: { ...shared, uColor: { value: PALETTE.pulse }, uBoost: { value: 1.0 } },
   vertexShader: /* glsl */`
     attribute float aBirth;
-    uniform float uTime, uPixelRatio;
+    uniform float uTime, uPixelRatio, uBoost;
     varying float vA;
     varying float vDepth;
     void main() {
@@ -891,12 +910,12 @@ const sparkMat = new THREE.ShaderMaterial({
       vDepth = -mv.z;
       float age = uTime - aBirth;
       vA = step(0.0, age) * exp(-age * 2.4);
-      gl_PointSize = min((0.7 + age * 1.2) * uPixelRatio * (260.0 / max(vDepth, 0.5)), 40.0 * uPixelRatio) * step(0.0, age);
+      gl_PointSize = min((0.7 + age * 1.2) * uBoost * uPixelRatio * (260.0 / max(vDepth, 0.5)), 40.0 * uPixelRatio) * step(0.0, age);
       gl_Position = projectionMatrix * mv;
     }
   `,
   fragmentShader: /* glsl */`
-    uniform float uFog, uDofFar;
+    uniform float uFog, uDofFar, uBoost;
     uniform vec3 uColor;
     varying float vA;
     varying float vDepth;
@@ -907,7 +926,7 @@ const sparkMat = new THREE.ShaderMaterial({
       float fog = exp(-vDepth * uFog);
       float nearFade = smoothstep(0.4, 2.5, vDepth);
       float dA = (1.0 - clamp(vDepth / uDofFar, 0.0, 1.0)) * step(0.3, a) * step(0.12, fog * nearFade);
-      gl_FragColor = vec4(uColor * a * 1.6 * fog * nearFade, dA);
+      gl_FragColor = vec4(uColor * a * 1.6 * uBoost * fog * nearFade, dA);
     }
   `,
   transparent: true,
@@ -1014,14 +1033,18 @@ composer.addPass(dofPass);
 composer.addPass(bloom);
 
 const finish = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: shared.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  uniforms: {
+    tDiffuse: { value: null }, uTime: shared.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uSat: { value: 1.0 },   // colour intensity: 0 = monochrome, 1 = as designed, 2 = doubled
+    uGain: { value: 1.0 },  // overall intensity multiplier, before tone mapping
+  },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
   `,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform float uTime;
+    uniform float uTime, uSat, uGain;
     uniform vec2 uRes;
     varying vec2 vUv;
     float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -1037,6 +1060,8 @@ const finish = new ShaderPass({
       // deep-blue lift in the shadows, vignette, grain
       col += vec3(0.002, 0.003, 0.012) * (1.0 - r * 2.0);
       col *= smoothstep(0.95, 0.18, r * 1.6);
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = max(mix(vec3(lum), col, uSat), 0.0) * uGain;
       col += (h(vUv * uRes + fract(uTime) * 100.0) - 0.5) * 0.018;
       gl_FragColor = vec4(col, 1.0);
     }
@@ -1064,6 +1089,7 @@ document.addEventListener('visibilitychange', () => { paused = document.hidden; 
 
 // ── Loop ────────────────────────────────────────────────────────────────────
 let travel = parseFloat(params.get('z') || '0'); // distance along -Z
+let fps = 60;
 let last = performance.now();
 let time = 0;
 const camPos = new THREE.Vector3(), look = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -1073,8 +1099,109 @@ let camOverride = null; // debug: frame a specific soma
 
 // Autofocus: rack toward the cell body nearest the centre of frame; when none is
 // close to centre, drift slowly so focus still wanders through the layers.
+// ── Interaction (opt-in; /neuro enables it, the homepage background does not) ──
+const IX = {
+  on: false,
+  lock: null,          // { rec, until } focus held on a tapped neuron
+  hover: null,         // neuron under the mouse cursor
+  px: 0, py: 0,        // pointer position, CSS px
+  lastMove: -1e9,      // time of last mouse move
+  mouse: false,        // pointer is a mouse (focus-follows-cursor is desktop only)
+};
+const projV = new THREE.Vector3();
+
+// Nearest live soma to a screen point; prefers nearer neurons slightly.
+function pickSoma(px, py, maxPx) {
+  let best = null, bestScore = Infinity;
+  for (const N of neurons.values()) {
+    const dist = N.centre.distanceTo(camera.position);
+    if (dist > 70) continue;
+    projV.copy(N.centre).project(camera);
+    if (projV.z > 1 || projV.z < -1) continue;
+    const sx = (projV.x * 0.5 + 0.5) * innerWidth;
+    const sy = (-projV.y * 0.5 + 0.5) * innerHeight;
+    const d = Math.hypot(sx - px, sy - py);
+    if (d > maxPx) continue;
+    const score = d + dist * 1.5;
+    if (score < bestScore) { bestScore = score; best = N; }
+  }
+  return best;
+}
+
+function depthAlongView(N) {
+  return Math.max(2, toSoma.subVectors(N.centre, camera.position).dot(fwd));
+}
+
+function tapRing(x, y, hit) {
+  const r = document.createElement('div');
+  r.className = 'nx-tap' + (hit ? ' hit' : '');
+  r.style.left = x + 'px';
+  r.style.top = y + 'px';
+  document.body.appendChild(r);
+  setTimeout(() => r.remove(), 900);
+}
+
+function enableInteraction() {
+  if (IX.on) return;
+  IX.on = true;
+  const st = document.createElement('style');
+  st.textContent = `
+    .nx-tap { position: fixed; z-index: 30; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+      border: 1.5px solid rgba(90,174,187,0.9); pointer-events: none; animation: nx-tap .9s ease-out forwards; }
+    .nx-tap.hit { border-color: rgba(169,219,226,1); box-shadow: 0 0 12px rgba(90,174,187,0.8); }
+    @keyframes nx-tap { from { transform: scale(0.4); opacity: 1; } to { transform: scale(4); opacity: 0; } }`;
+  document.head.appendChild(st);
+
+  let down = null;
+  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    const quick = performance.now() - down.t < 350;
+    down = null;
+    if (moved > 12 || !quick) return;
+    // tap: fire the neuron nearest the touch point, bypassing its rest period
+    const N = pickSoma(e.clientX, e.clientY, e.pointerType === 'mouse' ? 160 : 220) || pickSoma(e.clientX, e.clientY, 420);
+    tapRing(e.clientX, e.clientY, !!N);
+    if (!N) return;
+    N.lastFire = -1000;
+    fireNeuron(N, time);
+    emitSpark(N.centre, time);
+    IX.lock = { rec: N, until: time + (e.pointerType === 'mouse' ? 2.5 : 6) };
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    IX.px = e.clientX; IX.py = e.clientY;
+    IX.mouse = e.pointerType === 'mouse';
+    if (IX.mouse) IX.lastMove = time;
+  });
+  canvas.addEventListener('pointerleave', () => { IX.lastMove = -1e9; IX.hover = null; canvas.classList.remove('nx-over'); });
+}
+
 function updateFocus(dt) {
   camera.getWorldDirection(fwd);
+
+  // 1. a tapped neuron holds focus for a few seconds
+  if (IX.lock && (time > IX.lock.until || !neurons.has(IX.lock.rec.id))) IX.lock = null;
+  let driven = null;
+  if (IX.lock) driven = depthAlongView(IX.lock.rec);
+
+  // 2. desktop: focus follows the neuron under the cursor while the mouse is active
+  if (driven === null && IX.on && IX.mouse && time - IX.lastMove < 5) {
+    const N = pickSoma(IX.px, IX.py, 170);
+    if (N) IX.hover = N;
+    if (IX.hover && !neurons.has(IX.hover.id)) IX.hover = null;
+    canvas.classList.toggle('nx-over', !!N); // styled by the /neuro cursor layer
+    if (IX.hover) driven = depthAlongView(IX.hover);
+  } else if (IX.on && !IX.lock) {
+    IX.hover = null;
+  }
+  if (driven !== null) {
+    focus += (driven - focus) * Math.min(dt * 2.2, 1);  // pointer-driven focus racks faster
+    dofPass.uniforms.uFocus.value = focus;
+    return;
+  }
+
+  // 3. otherwise: autofocus on the soma nearest frame centre
   let best = null, bestScore = 0.32;
   for (const ch of chunks.values()) {
     for (const s of ch.somas) {
@@ -1105,10 +1232,12 @@ for (let k = 0; k <= CFG.chunksAhead; k++) generateChunk(k);
 function frame(now) {
   requestAnimationFrame(frame);
   if (paused) return;
-  const dt = Math.min((now - last) / 1000, 0.05);
+  const rawDt = (now - last) / 1000;
+  if (rawDt > 0) fps += (1 / rawDt - fps) * 0.05;
+  const dt = Math.min(rawDt, 0.05);
   last = now;
   time += dt;
-  travel += dt * CFG.speed;
+  travel += dt * CFG.speed * MOD.speed;
   shared.uTime.value = time;
 
   ensureChunks();
@@ -1121,6 +1250,14 @@ function frame(now) {
   camPos.y -= mouseS.y * 1.1;
   look.x += mouseS.x * 3.0;
   look.y -= mouseS.y * 2.0;
+  if (MOD.shake > 0) {
+    // fine tremor: layered high-frequency sines on position and aim
+    const t = time, k = MOD.shake;
+    camPos.x += (Math.sin(t * 41.3) * 0.6 + Math.sin(t * 67.9 + 1.7) * 0.4) * k;
+    camPos.y += (Math.sin(t * 47.1 + 0.4) * 0.6 + Math.sin(t * 73.3 + 2.9) * 0.4) * k;
+    look.x += Math.sin(t * 29.7 + 0.9) * k * 3;
+    look.y += Math.sin(t * 33.1 + 2.2) * k * 3;
+  }
   camera.position.copy(camPos);
   const roll = Math.sin(time * 0.07) * 0.08;
   up.set(Math.sin(roll), Math.cos(roll), 0);
@@ -1145,20 +1282,102 @@ function frame(now) {
     }
   }
 
+  // apply state modifiers
+  finish.uniforms.uGain.value = USER.gain * MOD.gain;
+  finish.uniforms.uSat.value = USER.sat * MOD.sat;
+  sparkMat.uniforms.uBoost.value = sparkBase * MOD.spark;
+  PALETTE.pulse.copy(BASE_PULSE).lerp(MOD_PULSE, Math.min(1, Math.max(0, MOD.pulseMix)));
+  if (Math.abs(62 + MOD.fov - appliedFov) > 0.01) {
+    appliedFov = 62 + MOD.fov;
+    camera.fov = appliedFov;
+    camera.updateProjectionMatrix();
+  }
+
   if (dofPass.enabled) updateFocus(dt);
   composer.render();
 }
 
 canvas.classList.add('ready');
-{
+function kickStart(t0) {
   const first = [...neurons.values()].sort(() => Math.random() - 0.5).slice(0, 3);
-  first.forEach((N, i) => schedule({ t: 0.6 + i * 1.3, kind: 'fire', id: N.id }));
+  first.forEach((N, i) => schedule({ t: t0 + 0.6 + i * 1.3, kind: 'fire', id: N.id }));
+}
+kickStart(0);
+
+// Regenerate every live chunk in place (same seed, current structure settings).
+function rebuild() {
+  for (const k of [...chunks.keys()]) disposeChunk(k);
+  events.length = 0;
+  fireData.fill(-1000);
+  fireTex.needsUpdate = true;
+  sparkGeo.attributes.aBirth.array.fill(-1000);
+  sparkGeo.attributes.aBirth.needsUpdate = true;
+  shared.uPulseSpeed.value = pulseSpeed();
+  const cur = Math.floor(travel / CFG.chunkLen);
+  for (let k = Math.max(0, cur - CFG.chunksBehind); k <= cur + CFG.chunksAhead; k++) generateChunk(k);
+  kickStart(time);
+}
+
+// Rebuild the world from a new seed, from the start of the path.
+function reseed(seed) {
+  CFG.seed = (Math.abs(Math.floor(Number(seed))) || 1) % 1000000000;
+  travel = 0;
+  focus = 14.0;
+  rebuild();
+  return CFG.seed;
+}
+
+// Re-derive junctions without regenerating geometry.
+function rewire() {
+  CFG.maxTargets = Math.min(8, Math.max(1, Math.round(3 * S.connections)));
+  CFG.junctionReach = 4.5 * Math.sqrt(S.connections);
+  sparkBase = 0.6 + 0.4 * S.connections; // junction sparks read more as links grow
+  const all = [...neurons.values()];
+  for (const N of all) N.out = [];
+  connectNeurons(all);
 }
 requestAnimationFrame(frame);
 
 // debug hook for capture tooling
 window.__neuro = {
   CFG,
+  // ── control surface (used by /neuro settings panel; defaults leave behaviour unchanged)
+  defaults: { speed: CFG.speed, sat: 1, gain: 1 },
+  getSeed: () => CFG.seed,
+  reseed,
+  setSpeed: (v) => { CFG.speed = Math.max(0, v); },
+  getSpeed: () => CFG.speed,
+  setSaturation: (v) => { USER.sat = Math.max(0, v); },
+  setGain: (v) => { USER.gain = Math.max(0, v); },
+  // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
+  setMods: (o) => { Object.assign(MOD, o); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 }); },
+  setModColor: (hex) => { MOD_PULSE.set(hex); },
+  getMods: () => ({ ...MOD }),
+  burst: (n, spread = 0.03) => {
+    camera.getWorldDirection(fwd);
+    const cand = [];
+    for (const N of neurons.values()) {
+      toSoma.subVectors(N.centre, camera.position);
+      const d = toSoma.dot(fwd);
+      if (d < 5 || d > 45) continue;
+      const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
+      cand.push({ N, score: lateral + d * 0.004 });
+    }
+    cand.sort((a, b) => a.score - b.score);
+    cand.slice(0, n).forEach((c, i) => {
+      c.N.lastFire = -1000;
+      schedule({ t: time + i * spread * Math.random() * 2, kind: 'fire', id: c.N.id });
+    });
+    return Math.min(n, cand.length);
+  },
+  // structure: multipliers, 1 = original. density/thickness/branching rebuild; connections rewire live
+  setStructure: (o) => { for (const k of ['density', 'thickness', 'branching']) if (o[k] != null) S[k] = o[k]; rebuild(); },
+  setConnections: (v) => { S.connections = v; rewire(); },
+  getStructure: () => ({ ...S }),
+  isMobile: IS_MOBILE,
+  getFps: () => fps,
+  enableInteraction,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
   fireAll: () => { for (const N of neurons.values()) { N.lastFire = -1000; fireNeuron(N, time); } },
