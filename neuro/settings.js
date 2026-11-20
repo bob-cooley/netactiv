@@ -3,7 +3,7 @@
 // Talks to the engine through window.__neuro (see neuro.js).
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
-import { initCursors } from './cursors.js?v=2';
+import { initCursors } from './cursors.js?v=3';
 import { initStates, isCalibrated, paramSpec } from './states.js?v=4';
 
 function whenReady(cb) {
@@ -57,6 +57,22 @@ whenReady((api) => {
   const gear = el('button', { class: 'ns-gear', type: 'button', 'aria-label': 'Settings', 'aria-expanded': 'false' });
   gear.innerHTML = gearSvg();
   document.body.appendChild(gear);
+
+  // ── Info ──────────────────────────────────────────────────────────────────
+  const infoBtn = el('button', { class: 'ns-gear ns-info-btn', type: 'button', 'aria-label': 'About this visualization', 'aria-expanded': 'false' });
+  infoBtn.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="17" class="ns-info-ring"/><circle cx="24" cy="15.5" r="2.3" class="ns-info-dot"/><path d="M24 21.5v13" class="ns-info-stem"/></svg>';
+  document.body.appendChild(infoBtn);
+  const info = el('div', { class: 'ns-panel ns-info', role: 'dialog', 'aria-label': 'About this visualization', hidden: '' });
+  info.innerHTML = `
+    <header class="ns-head">
+      <div class="ns-title">neuro <b>/</b> about</div>
+      <button class="ns-close" type="button" aria-label="Close" style="margin-left:auto">&times;</button>
+    </header>
+    <div class="ns-info-body">
+      <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in established, non-controversial science. That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
+      <p>It is born of scientific study, but the tool is more sci-“inspired” than absolute.</p>
+    </div>`;
+  document.body.appendChild(info);
 
   // ── Panel ─────────────────────────────────────────────────────────────────
   const panel = el('div', { class: 'ns-panel', role: 'dialog', 'aria-label': 'Neuro settings', hidden: '' });
@@ -194,7 +210,15 @@ whenReady((api) => {
     panel.querySelector('[data-nodes]').textContent = String(st.neurons);
     panel.querySelector('[data-links]').textContent = String(st.junctions);
   }
-  gear.addEventListener('click', () => open(panel.hidden));
+  gear.addEventListener('click', () => { showInfo(false); open(panel.hidden); });
+  function showInfo(on) {
+    info.hidden = !on;
+    infoBtn.setAttribute('aria-expanded', String(on));
+    infoBtn.classList.toggle('on', on);
+  }
+  infoBtn.addEventListener('click', () => { const on = info.hidden; if (on) open(false); showInfo(on); });
+  info.querySelector('.ns-close').addEventListener('click', () => showInfo(false));
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !info.hidden) showInfo(false); });
   panel.querySelector('.ns-close').addEventListener('click', () => open(false));
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) open(false); });
 
@@ -247,11 +271,11 @@ function gearSvg() {
 function injectStyles() {
   const css = `
   :root {
-    --ns-mag: rgb(220,30,130);
-    --ns-mag-dim: rgba(220,30,130,0.45);
-    --ns-teal: #00c8e0;
-    --ns-text: #e8e8ec;
-    --ns-muted: #a0a0ae;
+    --ns-mag: rgb(158,78,116);
+    --ns-mag-dim: rgba(158,78,116,0.45);
+    --ns-teal: #5aaebb;
+    --ns-text: #d4d4da;
+    --ns-muted: #9a9aa6;
     --ns-ui: 'Century Gothic Pro', 'Century Gothic', 'Futura', sans-serif;
     --ns-mono: 'Space Mono', ui-monospace, Menlo, monospace;
   }
@@ -265,7 +289,14 @@ function injectStyles() {
   .ns-gear-rot { stroke: var(--ns-mag); stroke-width: 1.6; fill: rgba(7,7,7,0.85); transform-origin: 24px 24px; transition: transform .6s ease; }
   .ns-gear-hole { fill: none; stroke: var(--ns-mag); stroke-width: 1.6; }
   .ns-gear:hover .ns-gear-rot, .ns-gear.on .ns-gear-rot { transform: rotate(72deg); }
-  .ns-gear:hover, .ns-gear.on { border-color: var(--ns-mag); background: rgba(220,30,130,0.10); }
+  .ns-info-btn { right: 72px; }
+  .ns-info-ring, .ns-info-stem { fill: none; stroke: var(--ns-mag); stroke-width: 2.4; stroke-linecap: round; }
+  .ns-info-dot { fill: var(--ns-mag); }
+  .ns-info { width: min(540px, calc(100vw - 24px)); }
+  .ns-info-body p { font-size: 15px; line-height: 1.65; letter-spacing: .02em; color: var(--ns-text); margin: 0 0 12px; }
+  .ns-info-body p:last-child { margin-bottom: 2px; }
+  .ns-info-body i { color: var(--ns-teal); font-style: italic; }
+  .ns-gear:hover, .ns-gear.on { border-color: var(--ns-mag); background: rgba(158,78,116,0.10); }
 
   .ns-panel {
     position: fixed; z-index: 35; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -280,7 +311,7 @@ function injectStyles() {
   .ns-panel::-webkit-scrollbar { display: none; }
   .ns-panel[hidden] { display: none; }
 
-  .ns-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid rgba(220,30,130,0.2); }
+  .ns-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid rgba(158,78,116,0.2); }
   .ns-title { font-size: 16px; letter-spacing: .24em; text-transform: lowercase; }
   .ns-title b { color: var(--ns-mag); font-weight: 400; }
   .ns-tele { margin-left: auto; font-family: var(--ns-mono); font-size: 12px; color: var(--ns-muted); }
@@ -295,7 +326,7 @@ function injectStyles() {
     color: var(--ns-text); background: rgba(7,7,7,0.35); border: 1px solid var(--ns-mag-dim);
     padding: 6px 12px; cursor: pointer;
   }
-  .ns-btn:hover { border-color: var(--ns-mag); color: #fff; background: rgba(220,30,130,0.14); }
+  .ns-btn:hover { border-color: var(--ns-mag); color: #fff; background: rgba(158,78,116,0.14); }
 
   .ns-label { font-size: 13px; letter-spacing: .1em; text-transform: lowercase; color: var(--ns-muted); }
   .ns-note { font-family: var(--ns-mono); font-size: 12px; color: var(--ns-muted); letter-spacing: 0; text-transform: none; }
@@ -303,7 +334,7 @@ function injectStyles() {
   .ns-seed { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
   .ns-seed-in {
     font-family: var(--ns-mono); font-size: 18px; letter-spacing: .12em; color: var(--ns-teal);
-    background: rgba(0,0,0,0.35); border: 1px solid rgba(0,200,224,0.4); padding: 4px 10px; width: 12ch; outline: none;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(90,174,187,0.4); padding: 4px 10px; width: 12ch; outline: none;
   }
   .ns-seed-in:focus { border-color: var(--ns-teal); }
 
@@ -325,14 +356,14 @@ function injectStyles() {
   .ns-row input[type=range]::-moz-range-progress, .ns-range::-moz-range-progress { height: 3px; background: var(--ns-teal); }
   .ns-row input[type=range]::-webkit-slider-thumb, .ns-range::-webkit-slider-thumb {
     -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5.5px; border-radius: 50%;
-    background: #0b0b0f; border: 2px solid var(--ns-mag); box-shadow: 0 0 6px rgba(220,30,130,0.6);
+    background: #0b0b0f; border: 2px solid var(--ns-mag); box-shadow: 0 0 6px rgba(158,78,116,0.6);
   }
   .ns-row input[type=range]::-moz-range-thumb, .ns-range::-moz-range-thumb {
     width: 10px; height: 10px; border-radius: 50%; background: #0b0b0f; border: 2px solid var(--ns-mag);
   }
   .ns-row input[type=range]:focus-visible, .ns-range:focus-visible { outline: 1px solid var(--ns-teal); outline-offset: 2px; }
 
-  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(220,30,130,0.2); }
+  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(158,78,116,0.2); }
   .ns-sel { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; min-width: 0; }
   .ns-sel select {
     font-family: var(--ns-mono); font-size: 13px; color: var(--ns-text);
@@ -340,7 +371,7 @@ function injectStyles() {
   }
   .ns-sel select:focus { outline: none; border-color: var(--ns-teal); }
   .ns-sel option { background: #0b0b0f; }
-  .ns-standby { flex-basis: 100%; color: #ffae5c; }
+  .ns-standby { flex-basis: 100%; color: #c9a06e; }
   .ns-sub { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 8px; margin-top: 4px; }
   .ns-sub.off { opacity: .35; }
   .ns-sub.off .ns-range { cursor: default; }

@@ -214,16 +214,16 @@ function injectStyles() {
   .nc-in { transition: transform .12s ease-out; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.95)); }
   .nc-in svg { width: 100%; height: 100%; display: block; overflow: visible; }
 
-  .nc-line { fill: none; stroke: #00c8e0; stroke-width: 1.6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-  .nc-dot { fill: rgb(220,30,130); }
-  .nc.over .nc-line { stroke: #7ff3ff; }
+  .nc-line { fill: none; stroke: #5aaebb; stroke-width: 1.6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .nc-dot { fill: rgb(158,78,116); }
+  .nc.over .nc-line { stroke: #a9dbe2; }
   .nc.over .nc-dot { fill: #fff; }
   .nc-spin { transform-origin: 21px 21px; transition: transform .4s ease; }
   .nc.over .nc-spin { transform: rotate(45deg); }
 
-  .nc-hand > * { fill: #0d0d12; stroke: #e8e8ec; stroke-width: 1.5; }
+  .nc-hand > * { fill: #0d0d12; stroke: #d4d4da; stroke-width: 1.5; }
   .nc-hand .nc-crease { fill: none; stroke: rgba(232,232,236,0.5); stroke-width: 1; }
-  .nc.over .nc-hand > * { stroke: rgb(220,30,130); }
+  .nc.over .nc-hand > * { stroke: rgb(158,78,116); }
 
   .nc-white { fill: #eef2f7; }
   .nc-iris { fill: #00a9c2; stroke: #006b7d; stroke-width: 0.8; }
@@ -232,15 +232,15 @@ function injectStyles() {
   .nc-lidgroup { transform-origin: 23px 15px; }
   .nc-lidgroup.blink { animation: nc-blink .17s ease-in-out; }
   @keyframes nc-blink { 0%, 100% { transform: scaleY(1); } 45%, 55% { transform: scaleY(0.06); } }
-  .nc.over .nc-iris { fill: rgb(220,30,130); stroke: #7a0f47; }
+  .nc.over .nc-iris { fill: rgb(158,78,116); stroke: #5a2a40; }
 
   .nc-hull { fill: #23232e; }
-  .nc-rim { fill: none; stroke: #00c8e0; stroke-width: 1.3; }
-  .nc-dome { fill: rgba(127,243,255,0.30); stroke: #7ff3ff; stroke-width: 1.2; }
+  .nc-rim { fill: none; stroke: #5aaebb; stroke-width: 1.3; }
+  .nc-dome { fill: rgba(169,219,226,0.30); stroke: #a9dbe2; stroke-width: 1.2; }
   .nc-glint { fill: none; stroke: rgba(255,255,255,0.7); stroke-width: 1; stroke-linecap: round; }
-  .nc-beam { fill: rgba(0,200,224,0.0); transition: fill .2s; }
-  .nc.over .nc-beam, .nc.down .nc-beam { fill: rgba(0,200,224,0.45); }
-  .nc-lights circle { fill: rgb(220,30,130); animation: nc-chase 1s infinite; }
+  .nc-beam { fill: rgba(90,174,187,0.0); transition: fill .2s; }
+  .nc.over .nc-beam, .nc.down .nc-beam { fill: rgba(90,174,187,0.45); }
+  .nc-lights circle { fill: rgb(158,78,116); animation: nc-chase 1s infinite; }
   .nc-lights circle:nth-child(2) { animation-delay: .2s; }
   .nc-lights circle:nth-child(3) { animation-delay: .4s; }
   .nc-lights circle:nth-child(4) { animation-delay: .6s; }

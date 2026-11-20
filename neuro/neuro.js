@@ -1147,8 +1147,8 @@ function enableInteraction() {
   const st = document.createElement('style');
   st.textContent = `
     .nx-tap { position: fixed; z-index: 30; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
-      border: 1.5px solid rgba(0,200,224,0.9); pointer-events: none; animation: nx-tap .9s ease-out forwards; }
-    .nx-tap.hit { border-color: rgba(127,243,255,1); box-shadow: 0 0 12px rgba(0,200,224,0.8); }
+      border: 1.5px solid rgba(90,174,187,0.9); pointer-events: none; animation: nx-tap .9s ease-out forwards; }
+    .nx-tap.hit { border-color: rgba(169,219,226,1); box-shadow: 0 0 12px rgba(90,174,187,0.8); }
     @keyframes nx-tap { from { transform: scale(0.4); opacity: 1; } to { transform: scale(4); opacity: 0; } }`;
   document.head.appendChild(st);
 
