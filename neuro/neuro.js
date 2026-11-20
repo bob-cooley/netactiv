@@ -117,7 +117,7 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 2
 
 // State modifiers layered on top of the user's settings. All neutral by default,
 // so pages that never touch them (the homepage) render exactly as designed.
-const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0 };
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 };
 const USER = { gain: 1, sat: 1 };
 const BASE_PULSE = new THREE.Color('#7ff3ff');
 const MOD_PULSE = new THREE.Color('#ffc84a');
@@ -875,7 +875,7 @@ function fireNeuron(N, t) {
   for (const j of N.out) {
     const arrive = t + j.along / pulseSpeed();
     schedule({ t: arrive, kind: 'spark', pos: j.pos });
-    if (Math.random() < transmitP()) {
+    if (Math.random() < transmitP() * MOD.transmit) {
       schedule({ t: arrive + CFG.synapticDelay + j.gap / pulseSpeed(), kind: 'fire', id: j.target });
     }
   }
@@ -1250,6 +1250,14 @@ function frame(now) {
   camPos.y -= mouseS.y * 1.1;
   look.x += mouseS.x * 3.0;
   look.y -= mouseS.y * 2.0;
+  if (MOD.shake > 0) {
+    // fine tremor: layered high-frequency sines on position and aim
+    const t = time, k = MOD.shake;
+    camPos.x += (Math.sin(t * 41.3) * 0.6 + Math.sin(t * 67.9 + 1.7) * 0.4) * k;
+    camPos.y += (Math.sin(t * 47.1 + 0.4) * 0.6 + Math.sin(t * 73.3 + 2.9) * 0.4) * k;
+    look.x += Math.sin(t * 29.7 + 0.9) * k * 3;
+    look.y += Math.sin(t * 33.1 + 2.2) * k * 3;
+  }
   camera.position.copy(camPos);
   const roll = Math.sin(time * 0.07) * 0.08;
   up.set(Math.sin(roll), Math.cos(roll), 0);
@@ -1343,8 +1351,9 @@ window.__neuro = {
   setGain: (v) => { USER.gain = Math.max(0, v); },
   // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
   setMods: (o) => { Object.assign(MOD, o); },
-  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0 }); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 }); },
   setModColor: (hex) => { MOD_PULSE.set(hex); },
+  getMods: () => ({ ...MOD }),
   burst: (n, spread = 0.03) => {
     camera.getWorldDirection(fwd);
     const cand = [];

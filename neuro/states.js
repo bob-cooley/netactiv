@@ -53,9 +53,55 @@ function videoGame(api) {
   };
 }
 
+// ── Coffee (caffeine) ───────────────────────────────────────────────────────
+// Grounding: caffeine blocks adenosine receptors. Adenosine builds up during
+// waking and acts as a brake: it damps firing and (via A1 receptors) suppresses
+// transmitter release at synapses. Blocking it removes the brake rather than
+// pressing an accelerator: more spontaneous firing, slightly freer transmission,
+// heightened arousal, and at higher doses a fine tremor. Onset is gradual, so
+// the effect ramps in.
+function coffee(api) {
+  const ONSET = 18;          // seconds to full effect (compressed from ~30-60 min)
+  let t0 = 0, spell = null, nextSpell = 0;
+  const ease = (x) => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+
+  return {
+    start() {
+      t0 = performance.now() / 1000;
+      nextSpell = t0 + ONSET + 4 + Math.random() * 8;
+      api.setMods({ pulseMix: 0 });
+    },
+    frame(now) {
+      const r = ease((now - t0) / ONSET);
+      // occasional jittery spell once the caffeine has kicked in
+      if (now >= nextSpell) {
+        spell = { at: now, len: 0.6 + Math.random() * 0.9 };
+        nextSpell = now + 7 + Math.random() * 10;
+      }
+      let jitter = 1;
+      if (spell) {
+        const age = now - spell.at;
+        if (age > spell.len) spell = null;
+        else jitter = 1 + 2.2 * Math.sin(Math.PI * age / spell.len);
+      }
+      api.setMods({
+        spont: 1 + 1.1 * r,          // brake removed: neurons fire on their own about twice as often
+        transmit: 1 + 0.18 * r,      // signals cross junctions a little more readily
+        speed: 1 + 0.22 * r,
+        gain: 1 + 0.06 * r,
+        sat: 1 + 0.1 * r,
+        spark: 1 + 0.2 * r,
+        shake: 0.022 * r * jitter,   // fine tremor, stronger during a spell
+        fov: 0,
+      });
+    },
+  };
+}
+
 // profile id (as shown in the dropdown) -> factory
 const PROFILES = {
   'Video game (dopamine hits)': videoGame,
+  'Coffee (caffeine)': coffee,
 };
 
 export const isCalibrated = (name) => !!PROFILES[name];
