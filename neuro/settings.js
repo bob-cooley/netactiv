@@ -3,8 +3,8 @@
 // Talks to the engine through window.__neuro (see neuro.js).
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
-import { initCursors } from './cursors.js?v=1';
-import { initStates, isCalibrated } from './states.js?v=2';
+import { initCursors } from './cursors.js?v=2';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=4';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -17,7 +17,7 @@ const span = (v, lo, hi) => (v <= 50 ? lo + (1 - lo) * (v / 50) : 1 + (hi - 1) *
 whenReady((api) => {
   injectStyles();
   api.enableInteraction(); // tap to fire, focus follows pointer (/neuro only)
-  initStates(api);
+  const states = initStates(api);
   const canvas = document.getElementById('neuro');
   const base = api.defaults;
   const mobile = api.isMobile;
@@ -83,22 +83,34 @@ whenReady((api) => {
     </div>
 
     <div class="ns-states">
-      <label class="ns-sel"><span class="ns-label">mood</span>
-        <select data-state="mood"><option value="">baseline</option>${MOODS.map((m) => `<option>${m}</option>`).join('')}</select>
-      </label>
-      <label class="ns-sel"><span class="ns-label">altered state</span>
-        <select data-state="altered"><option value="">baseline</option>${ALTERED.map((m) => `<option>${m}</option>`).join('')}</select>
-      </label>
-      <label class="ns-sel"><span class="ns-label">cursor</span>
-        <select data-cursor></select>
-      </label>
+      <div class="ns-sel"><label class="ns-label" for="ns-mood">mood</label>
+        <select id="ns-mood" data-state="mood"><option value="">baseline</option>${MOODS.map((m) => `<option>${m}</option>`).join('')}</select>
+        <div class="ns-sub"><input type="range" class="ns-range" data-param="mood" aria-label="Mood parameter"><output class="ns-subval">-</output></div>
+      </div>
+      <div class="ns-sel"><label class="ns-label" for="ns-altered">altered state</label>
+        <select id="ns-altered" data-state="altered"><option value="">baseline</option>${ALTERED.map((m) => `<option>${m}</option>`).join('')}</select>
+        <div class="ns-sub"><input type="range" class="ns-range" data-param="altered" aria-label="Altered state parameter"><output class="ns-subval">-</output></div>
+      </div>
+      <div class="ns-sel"><label class="ns-label" for="ns-cursor">cursor</label>
+        <select id="ns-cursor" data-cursor></select>
+        <div class="ns-sub"><input type="range" class="ns-range" data-cursor-alpha min="0" max="100" step="1" aria-label="Cursor opacity"><output class="ns-subval"></output></div>
+      </div>
       <span class="ns-note ns-standby" data-state-msg>baseline</span>
     </div>
 
     <div class="ns-foot ns-note">tap or click the network to fire a neuron &middot; double-click a slider to reset it &middot; esc closes</div>
   `;
   document.body.appendChild(panel);
-  initCursors(panel.querySelector('[data-cursor]'), canvas);
+  const cursor = initCursors(panel.querySelector('[data-cursor]'), canvas);
+  {
+    const r = panel.querySelector('[data-cursor-alpha]');
+    const out = r.nextElementSibling;
+    const paint = () => { r.style.setProperty('--p', `${r.value}%`); out.textContent = `${r.value}%`; };
+    r.value = Math.round(cursor.getOpacity() * 100);
+    paint();
+    r.addEventListener('input', () => { paint(); cursor.setOpacity(r.value / 100); });
+    r.addEventListener('dblclick', () => { r.value = 100; paint(); cursor.setOpacity(1); });
+  }
 
   const sliders = [
     ...DISPLAY.map((d) => makeSlider(d, panel.querySelector('[data-group="display"]'))),
@@ -132,7 +144,28 @@ whenReady((api) => {
 
   // ── States (placeholders) ─────────────────────────────────────────────────
   const stateMsg = panel.querySelector('[data-state-msg]');
+  function syncParam(slot) {
+    const name = panel.querySelector(`[data-state="${slot}"]`).value;
+    const r = panel.querySelector(`[data-param="${slot}"]`);
+    const out = r.nextElementSibling;
+    const spec = paramSpec(name);
+    r.disabled = !spec;
+    r.closest('.ns-sub').classList.toggle('off', !spec);
+    if (!spec) { r.min = 0; r.max = 100; r.value = 0; r.style.setProperty('--p', '0%'); out.textContent = name ? 'n/a' : '-'; return; }
+    r.min = spec.min; r.max = spec.max; r.step = spec.step;
+    r.value = states.getParam(name);
+    const paintP = () => {
+      r.style.setProperty('--p', `${((r.value - spec.min) / (spec.max - spec.min)) * 100}%`);
+      out.textContent = spec.label(+r.value);
+    };
+    paintP();
+    r.oninput = () => { paintP(); states.setParam(name, +r.value); };
+    r.ondblclick = () => { r.value = spec.def; paintP(); states.setParam(name, spec.def); };
+  }
+  syncParam('mood');
+  syncParam('altered');
   panel.querySelectorAll('[data-state]').forEach((sel) => sel.addEventListener('change', () => {
+    syncParam(sel.dataset.state);
     const mood = panel.querySelector('[data-state="mood"]').value;
     const altered = panel.querySelector('[data-state="altered"]').value;
     const live = [mood, altered].filter((n) => n && isCalibrated(n));
@@ -282,32 +315,36 @@ function injectStyles() {
   .ns-row { display: grid; grid-template-columns: 112px 1fr 46px; align-items: center; gap: 10px; padding: 6px 0; }
   .ns-val { font-family: var(--ns-mono); font-size: 14px; color: var(--ns-teal); text-align: right; }
 
-  .ns-row input[type=range] {
+  .ns-row input[type=range], .ns-range {
     -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; margin: 0;
   }
-  .ns-row input[type=range]::-webkit-slider-runnable-track {
+  .ns-row input[type=range]::-webkit-slider-runnable-track, .ns-range::-webkit-slider-runnable-track {
     height: 3px; background: linear-gradient(to right, var(--ns-teal) var(--p), rgba(255,255,255,0.18) var(--p));
   }
-  .ns-row input[type=range]::-moz-range-track { height: 3px; background: rgba(255,255,255,0.18); }
-  .ns-row input[type=range]::-moz-range-progress { height: 3px; background: var(--ns-teal); }
-  .ns-row input[type=range]::-webkit-slider-thumb {
+  .ns-row input[type=range]::-moz-range-track, .ns-range::-moz-range-track { height: 3px; background: rgba(255,255,255,0.18); }
+  .ns-row input[type=range]::-moz-range-progress, .ns-range::-moz-range-progress { height: 3px; background: var(--ns-teal); }
+  .ns-row input[type=range]::-webkit-slider-thumb, .ns-range::-webkit-slider-thumb {
     -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5.5px; border-radius: 50%;
     background: #0b0b0f; border: 2px solid var(--ns-mag); box-shadow: 0 0 6px rgba(220,30,130,0.6);
   }
-  .ns-row input[type=range]::-moz-range-thumb {
+  .ns-row input[type=range]::-moz-range-thumb, .ns-range::-moz-range-thumb {
     width: 10px; height: 10px; border-radius: 50%; background: #0b0b0f; border: 2px solid var(--ns-mag);
   }
-  .ns-row input[type=range]:focus-visible { outline: 1px solid var(--ns-teal); outline-offset: 2px; }
+  .ns-row input[type=range]:focus-visible, .ns-range:focus-visible { outline: 1px solid var(--ns-teal); outline-offset: 2px; }
 
-  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(220,30,130,0.2); }
-  .ns-sel { display: flex; flex-direction: column; gap: 5px; }
+  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(220,30,130,0.2); }
+  .ns-sel { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; min-width: 0; }
   .ns-sel select {
     font-family: var(--ns-mono); font-size: 13px; color: var(--ns-text);
-    background: rgba(0,0,0,0.4); border: 1px solid var(--ns-mag-dim); padding: 6px 8px; min-width: 190px; cursor: pointer;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--ns-mag-dim); padding: 6px 8px; width: 100%; min-width: 0; cursor: pointer;
   }
   .ns-sel select:focus { outline: none; border-color: var(--ns-teal); }
   .ns-sel option { background: #0b0b0f; }
   .ns-standby { flex-basis: 100%; color: #ffae5c; }
+  .ns-sub { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 8px; margin-top: 4px; }
+  .ns-sub.off { opacity: .35; }
+  .ns-sub.off .ns-range { cursor: default; }
+  .ns-subval { font-family: var(--ns-mono); font-size: 12px; color: var(--ns-teal); text-align: right; white-space: nowrap; }
   .ns-standby.live { color: var(--ns-teal); }
   .ns-foot { margin-top: 12px; }
 
@@ -315,6 +352,7 @@ function injectStyles() {
     .ns-cols { grid-template-columns: 1fr; }
     .ns-tele { display: none; }
     .ns-row { grid-template-columns: 100px 1fr 46px; }
+    .ns-sel { flex-basis: 100%; }
   }
   `;
   const st = document.createElement('style');

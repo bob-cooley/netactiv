@@ -71,6 +71,7 @@ const CURSORS = {
 };
 
 const KEY = 'neuro.cursor';
+const KEY_ALPHA = 'neuro.cursorOpacity';
 
 export function initCursors(select, canvas) {
   injectStyles();
@@ -95,6 +96,15 @@ export function initCursors(select, canvas) {
   let x = -100, y = -100, sx = -100, sy = -100, vx = 0, vy = 0;
   let overCanvas = false, inWindow = false, down = false;
   let blinkT = 0;
+  let alpha = 1;
+  try { const a = parseFloat(localStorage.getItem(KEY_ALPHA)); if (a >= 0 && a <= 1) alpha = a; } catch {}
+  const control = {
+    getOpacity: () => alpha,
+    setOpacity(v) {
+      alpha = Math.max(0, Math.min(1, v));
+      try { localStorage.setItem(KEY_ALPHA, String(alpha)); } catch {}
+    },
+  };
 
   function choose(id) {
     if (!CURSORS[id]) id = 'system';
@@ -135,7 +145,7 @@ export function initCursors(select, canvas) {
   try { saved = localStorage.getItem(KEY) || 'system'; } catch {}
   choose(saved);
 
-  if (!fine) return; // touch screens: no cursor to draw
+  if (!fine) return control; // touch screens: no cursor to draw
 
   document.addEventListener('pointermove', (e) => {
     if (e.pointerType !== 'mouse') return;
@@ -155,7 +165,7 @@ export function initCursors(select, canvas) {
     last = now;
     const c = CURSORS[current];
     const show = !!c.svg && overCanvas && inWindow;
-    box.style.opacity = show ? '1' : '0';
+    box.style.opacity = show ? String(alpha) : '0';
     if (!c.svg) return;
 
     // the spaceship trails the pointer slightly; everything else tracks it exactly
@@ -191,6 +201,7 @@ export function initCursors(select, canvas) {
     }
   }
   requestAnimationFrame(tick);
+  return control;
 }
 
 function injectStyles() {
