@@ -597,7 +597,9 @@ let BUDGET = 0;              // forks left for the neuron being grown (guards hi
 // Structural multipliers, 1 = the original network. Set from the /neuro settings panel.
 const S = { density: 1, thickness: 1, branching: 1, connections: 1 };
 const pulseSpeed = () => CFG.pulseSpeed * Math.sqrt(S.thickness); // thicker fibres conduct faster
-const transmitP = () => Math.min(CFG.transmitP, 1.2 / CFG.maxTargets); // keep cascades bounded
+// more links -> more excitable network (expected triggers per firing: 1 link 0.34, 3 links 1.0, 8 links 2.0);
+// the refractory period stops it locking up. 3 links (default) keeps the original 0.34.
+const transmitP = () => Math.min(CFG.transmitP, 2.0 / CFG.maxTargets);
 let nextNeuronId = 0;
 const neurons = new Map();   // id -> soma record (live chunks only)
 const fibreGeoms = [];
@@ -888,10 +890,10 @@ sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPA
 sparkGeo.setAttribute('aBirth', new THREE.BufferAttribute(new Float32Array(SPARKS).fill(-1000), 1));
 let sparkHead = 0;
 const sparkMat = new THREE.ShaderMaterial({
-  uniforms: { ...shared, uColor: { value: PALETTE.pulse } },
+  uniforms: { ...shared, uColor: { value: PALETTE.pulse }, uBoost: { value: 1.0 } },
   vertexShader: /* glsl */`
     attribute float aBirth;
-    uniform float uTime, uPixelRatio;
+    uniform float uTime, uPixelRatio, uBoost;
     varying float vA;
     varying float vDepth;
     void main() {
@@ -899,12 +901,12 @@ const sparkMat = new THREE.ShaderMaterial({
       vDepth = -mv.z;
       float age = uTime - aBirth;
       vA = step(0.0, age) * exp(-age * 2.4);
-      gl_PointSize = min((0.7 + age * 1.2) * uPixelRatio * (260.0 / max(vDepth, 0.5)), 40.0 * uPixelRatio) * step(0.0, age);
+      gl_PointSize = min((0.7 + age * 1.2) * uBoost * uPixelRatio * (260.0 / max(vDepth, 0.5)), 40.0 * uPixelRatio) * step(0.0, age);
       gl_Position = projectionMatrix * mv;
     }
   `,
   fragmentShader: /* glsl */`
-    uniform float uFog, uDofFar;
+    uniform float uFog, uDofFar, uBoost;
     uniform vec3 uColor;
     varying float vA;
     varying float vDepth;
@@ -915,7 +917,7 @@ const sparkMat = new THREE.ShaderMaterial({
       float fog = exp(-vDepth * uFog);
       float nearFade = smoothstep(0.4, 2.5, vDepth);
       float dA = (1.0 - clamp(vDepth / uDofFar, 0.0, 1.0)) * step(0.3, a) * step(0.12, fog * nearFade);
-      gl_FragColor = vec4(uColor * a * 1.6 * fog * nearFade, dA);
+      gl_FragColor = vec4(uColor * a * 1.6 * uBoost * fog * nearFade, dA);
     }
   `,
   transparent: true,
@@ -1200,6 +1202,7 @@ function reseed(seed) {
 function rewire() {
   CFG.maxTargets = Math.min(8, Math.max(1, Math.round(3 * S.connections)));
   CFG.junctionReach = 4.5 * Math.sqrt(S.connections);
+  sparkMat.uniforms.uBoost.value = 0.6 + 0.4 * S.connections; // junction sparks read more as links grow
   const all = [...neurons.values()];
   for (const N of all) N.out = [];
   connectNeurons(all);
