@@ -7,6 +7,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
@@ -117,7 +118,7 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 2
 
 // State modifiers layered on top of the user's settings. All neutral by default,
 // so pages that never touch them (the homepage) render exactly as designed.
-const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 };
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0 };
 const USER = { gain: 1, sat: 1 };
 const BASE_PULSE = new THREE.Color('#7ff3ff');
 const MOD_PULSE = new THREE.Color('#ffc84a');
@@ -1030,6 +1031,11 @@ const dofPass = new ShaderPass({
 });
 dofPass.enabled = CFG.dof;
 composer.addPass(dofPass);
+const DOF_BASE = { k: dofPass.uniforms.uK.value, maxR: dofPass.uniforms.uMaxR.value };
+// motion trails (state layer); off unless a state asks for them
+const trailPass = new AfterimagePass(0);
+trailPass.enabled = false;
+composer.addPass(trailPass);
 composer.addPass(bloom);
 
 const finish = new ShaderPass({
@@ -1037,6 +1043,10 @@ const finish = new ShaderPass({
     tDiffuse: { value: null }, uTime: shared.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) },
     uSat: { value: 1.0 },   // colour intensity: 0 = monochrome, 1 = as designed, 2 = doubled
     uGain: { value: 1.0 },  // overall intensity multiplier, before tone mapping
+    uTint: { value: new THREE.Vector3(1, 1, 1) }, // colour cast (state layer)
+    uGhost: { value: 0.0 },                        // double-vision mix (state layer)
+    uGhostOff: { value: new THREE.Vector2(0, 0) }, // double-vision offset in UV
+    uVig: { value: 0.0 },                          // extra tunnel vignette (state layer)
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -1044,7 +1054,9 @@ const finish = new ShaderPass({
   `,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform float uTime, uSat, uGain;
+    uniform float uTime, uSat, uGain, uGhost, uVig;
+    uniform vec3 uTint;
+    uniform vec2 uGhostOff;
     uniform vec2 uRes;
     varying vec2 vUv;
     float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -1057,9 +1069,12 @@ const finish = new ShaderPass({
       col.r = texture2D(tDiffuse, vUv + off).r;
       col.g = texture2D(tDiffuse, vUv).g;
       col.b = texture2D(tDiffuse, vUv - off).b;
+      if (uGhost > 0.001) col = mix(col, max(col, texture2D(tDiffuse, vUv + uGhostOff).rgb), uGhost);
       // deep-blue lift in the shadows, vignette, grain
       col += vec3(0.002, 0.003, 0.012) * (1.0 - r * 2.0);
       col *= smoothstep(0.95, 0.18, r * 1.6);
+      col *= mix(1.0, smoothstep(0.55, 0.02, r * 1.6), uVig);
+      col *= uTint;
       float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
       col = max(mix(vec3(lum), col, uSat), 0.0) * uGain;
       col += (h(vUv * uRes + fract(uTime) * 100.0) - 0.5) * 0.018;
@@ -1126,6 +1141,20 @@ function pickSoma(px, py, maxPx) {
     if (score < bestScore) { bestScore = score; best = N; }
   }
   return best;
+}
+
+function clusterIds(n) {
+  camera.getWorldDirection(fwd);
+  const cand = [];
+  for (const N of neurons.values()) {
+    toSoma.subVectors(N.centre, camera.position);
+    const d = toSoma.dot(fwd);
+    if (d < 5 || d > 45) continue;
+    const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
+    cand.push({ id: N.id, score: lateral + d * 0.004 });
+  }
+  cand.sort((a, b) => a.score - b.score);
+  return cand.slice(0, n).map((c) => c.id);
 }
 
 function depthAlongView(N) {
@@ -1212,8 +1241,13 @@ function updateFocus(dt) {
       if (lateral < bestScore) { bestScore = lateral; best = d; }
     }
   }
-  const target = best !== null ? best : 16 + Math.sin(time * 0.05) * 4 + Math.sin(time * 0.13) * 1.5;
-  focus += (target - focus) * Math.min(dt * 0.6, 1);
+  let target = best !== null ? best : 16 + Math.sin(time * 0.05) * 4 + Math.sin(time * 0.13) * 1.5;
+  if (MOD.focusWander > 0) {
+    // attention drifts: focus slides off the subject and back of its own accord
+    const t = performance.now() / 1000;
+    target = Math.max(3, target + MOD.focusWander * (Math.sin(t * 0.23) * 7 + Math.sin(t * 0.11 + 1.3) * 5));
+  }
+  focus += (target - focus) * Math.min(dt * (MOD.focusWander > 0 ? 0.35 : 0.6), 1);
   dofPass.uniforms.uFocus.value = focus;
 }
 
@@ -1236,8 +1270,9 @@ function frame(now) {
   if (rawDt > 0) fps += (1 / rawDt - fps) * 0.05;
   const dt = Math.min(rawDt, 0.05);
   last = now;
-  time += dt;
-  travel += dt * CFG.speed * MOD.speed;
+  const simDt = dt * MOD.timeScale;               // time dilation (state layer)
+  time += simDt;
+  travel += simDt * CFG.speed * MOD.speed;
   shared.uTime.value = time;
 
   ensureChunks();
@@ -1258,14 +1293,24 @@ function frame(now) {
     look.x += Math.sin(t * 29.7 + 0.9) * k * 3;
     look.y += Math.sin(t * 33.1 + 2.2) * k * 3;
   }
+  let swayRoll = 0;
+  if (MOD.sway > 0) {
+    // slow, unsteady drift of position, aim and roll
+    const t = performance.now() / 1000, k = MOD.sway;
+    camPos.x += (Math.sin(t * 0.53) * 0.7 + Math.sin(t * 0.21 + 1.1) * 0.5) * k * 1.4;
+    camPos.y += (Math.sin(t * 0.41 + 0.6) * 0.6 + Math.sin(t * 0.17) * 0.4) * k * 0.8;
+    look.x -= Math.sin(t * 0.37 + 2.0) * k * 2.2;
+    look.y += Math.sin(t * 0.29 + 0.3) * k * 1.2;
+    swayRoll = Math.sin(t * 0.31) * k * 0.14;
+  }
   camera.position.copy(camPos);
-  const roll = Math.sin(time * 0.07) * 0.08;
+  const roll = Math.sin(time * 0.07) * 0.08 + swayRoll;
   up.set(Math.sin(roll), Math.cos(roll), 0);
   camera.up.copy(up);
   camera.lookAt(look);
   if (camOverride) { camera.position.copy(camOverride.pos); camera.lookAt(camOverride.target); }
 
-  stepSignals(time, dt);
+  stepSignals(time, simDt);
 
   // somas: slow breathing plus a flash when the neuron fires
   for (const ch of chunks.values()) {
@@ -1292,6 +1337,18 @@ function frame(now) {
     camera.fov = appliedFov;
     camera.updateProjectionMatrix();
   }
+
+  finish.uniforms.uTint.value.set(MOD.tint[0], MOD.tint[1], MOD.tint[2]);
+  finish.uniforms.uVig.value = MOD.vignette;
+  finish.uniforms.uGhost.value = MOD.ghost;
+  if (MOD.ghost > 0) {
+    const t = performance.now() / 1000;
+    finish.uniforms.uGhostOff.value.set((0.006 + 0.004 * Math.sin(t * 0.7)) * MOD.ghost, 0.002 * Math.sin(t * 0.45) * MOD.ghost);
+  }
+  dofPass.uniforms.uK.value = DOF_BASE.k * MOD.blur;
+  dofPass.uniforms.uMaxR.value = DOF_BASE.maxR * Math.min(Math.max(MOD.blur, 0.5), 1.6);
+  trailPass.enabled = MOD.trails > 0.01;
+  trailPass.uniforms.damp.value = Math.min(0.94, MOD.trails);
 
   if (dofPass.enabled) updateFocus(dt);
   composer.render();
@@ -1351,25 +1408,41 @@ window.__neuro = {
   setGain: (v) => { USER.gain = Math.max(0, v); },
   // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
   setMods: (o) => { Object.assign(MOD, o); },
-  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0 }); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0 }); },
   setModColor: (hex) => { MOD_PULSE.set(hex); },
   getMods: () => ({ ...MOD }),
   burst: (n, spread = 0.03) => {
-    camera.getWorldDirection(fwd);
-    const cand = [];
-    for (const N of neurons.values()) {
-      toSoma.subVectors(N.centre, camera.position);
-      const d = toSoma.dot(fwd);
-      if (d < 5 || d > 45) continue;
-      const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
-      cand.push({ N, score: lateral + d * 0.004 });
-    }
-    cand.sort((a, b) => a.score - b.score);
-    cand.slice(0, n).forEach((c, i) => {
-      c.N.lastFire = -1000;
-      schedule({ t: time + i * spread * Math.random() * 2, kind: 'fire', id: c.N.id });
+    const ids = clusterIds(n);
+    ids.forEach((id, i) => {
+      neurons.get(id).lastFire = -1000;
+      schedule({ t: time + i * spread * Math.random() * 2, kind: 'fire', id });
     });
-    return Math.min(n, cand.length);
+    return ids.length;
+  },
+  // ids of the n neurons nearest the centre of view (for loops and targeted firing)
+  cluster: (n) => clusterIds(n),
+  fireIds: (ids, spread = 0.05, force = true) => {
+    ids.forEach((id, i) => {
+      const N = neurons.get(id);
+      if (!N) return;
+      if (force) N.lastFire = -1000;
+      schedule({ t: time + i * spread, kind: 'fire', id });
+    });
+  },
+  // synchronised wave: neurons fire in order of distance from an origin ahead of the camera
+  wave: ({ speed = 14, reach = 45, depth = 18, jitter = 0.15, max = 40 } = {}) => {
+    camera.getWorldDirection(fwd);
+    const o = camera.position.clone().addScaledVector(fwd, depth);
+    const list = [...neurons.values()]
+      .map((N) => ({ N, d: N.centre.distanceTo(o) }))
+      .filter((x) => x.d < reach)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, max);
+    for (const { N, d } of list) {
+      N.lastFire = -1000;
+      schedule({ t: time + d / speed + Math.random() * jitter, kind: 'fire', id: N.id });
+    }
+    return list.length;
   },
   // structure: multipliers, 1 = original. density/thickness/branching rebuild; connections rewire live
   setStructure: (o) => { for (const k of ['density', 'thickness', 'branching']) if (o[k] != null) S[k] = o[k]; rebuild(); },
