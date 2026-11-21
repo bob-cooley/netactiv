@@ -4,7 +4,7 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=3';
-import { initStates, isCalibrated, paramSpec } from './states.js?v=7';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=8';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -117,6 +117,7 @@ whenReady((api) => {
         <div class="ns-sub"><input type="range" class="ns-range" data-cursor-alpha min="0" max="100" step="1" aria-label="Cursor opacity"><output class="ns-subval"></output></div>
       </div>
       <span class="ns-note ns-standby" data-state-msg>baseline</span>
+      <span class="ns-note ns-stacknote" data-stack-note hidden>combined states are a theoretical extrapolation: each state is grounded in findings, but how they interact has not been studied</span>
     </div>
 
     <div class="ns-foot ns-note">tap or click the network to fire a neuron &middot; double-click a slider to reset it &middot; esc closes</div>
@@ -165,6 +166,7 @@ whenReady((api) => {
 
   // ── States (placeholders) ─────────────────────────────────────────────────
   const stateMsg = panel.querySelector('[data-state-msg]');
+  const stackNote = panel.querySelector('[data-stack-note]');
   function syncParam(slot) {
     const name = panel.querySelector(`[data-state="${slot}"]`).value;
     const r = panel.querySelector(`[data-param="${slot}"]`);
@@ -191,13 +193,16 @@ whenReady((api) => {
     const mood = panel.querySelector('[data-state="mood"]').value;
     const altered = panel.querySelector('[data-state="altered"]').value;
     const neuro = panel.querySelector('[data-state="neuro"]').value;
-    const live = [mood, altered, neuro].filter((n) => n && isCalibrated(n));
-    const pending = [mood, altered, neuro].filter((n) => n && !isCalibrated(n));
+    // layer order: neurodivergence (base), then mood, then altered state
+    const ordered = [neuro, mood, altered];
+    const live = ordered.filter((n) => n && isCalibrated(n));
+    const pending = ordered.filter((n) => n && !isCalibrated(n));
     const parts = [];
-    if (live.length) parts.push(`${live[0].toLowerCase()}: active`);
+    if (live.length) parts.push(`${live.join(' + ').toLowerCase()}: active`);
     if (pending.length) parts.push(`${pending.join(' + ').toLowerCase()}: not yet calibrated`);
     stateMsg.textContent = parts.length ? parts.join(' / ') : 'baseline';
     stateMsg.classList.toggle('live', live.length > 0);
+    stackNote.hidden = live.length < 2;
     window.dispatchEvent(new CustomEvent('neuro:state', { detail: { mood, altered, neuro } }));
   }));
 
@@ -385,6 +390,8 @@ function injectStyles() {
   .ns-sub.off .ns-range { cursor: default; }
   .ns-subval { font-family: var(--ns-mono); font-size: 12px; color: var(--ns-teal); text-align: right; white-space: nowrap; }
   .ns-standby.live { color: var(--ns-teal); }
+  .ns-stacknote { flex-basis: 100%; color: #c9a06e; font-style: italic; margin-top: -4px; }
+  .ns-stacknote[hidden] { display: none; }
   .ns-foot { margin-top: 12px; }
 
   @media (max-width: 640px) {
