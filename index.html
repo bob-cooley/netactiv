@@ -167,9 +167,12 @@
     #neuro.ready { opacity: 1; }
     #neuro-fallback { display: none; }
 
+    @media (max-width: 1024px) {
+      .logo img { width: clamp(180px, 26vw, 300px); }
+    }
     @media (max-width: 600px) {
       .logo { top: 28px; left: 24px; }
-      .logo img { width: clamp(200px, 55vw, 320px); }
+      .logo img { width: clamp(140px, 40vw, 200px); }
       footer { left: 24px; bottom: 40px; }
       .site-nav { display: none; }
     }
