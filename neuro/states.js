@@ -624,6 +624,79 @@ function polar(api, axisOf) {
 const bipolar = (api) => polar(api, (v) => [-1, -0.5, 0, 0.5, 1][Math.max(0, Math.min(4, Math.round(v)))]);
 const mania = (api) => polar(api, (v) => [0.55, 1.0, 1.3][Math.max(0, Math.min(2, Math.round(v)))]);
 
+// ── SSRI withdrawal (antidepressant discontinuation) ─────────────────────────
+// Findings: Henssler et al. 2024 (Lancet Psychiatry, 79 studies, ~21,000 people):
+// discontinuation symptoms in ~31% after stopping antidepressants vs ~17% after
+// placebo; severe in ~2.8% vs ~0.6% - common, mostly mild, partly non-specific.
+// Dizziness is the most frequently reported symptom; "brain zaps" (brief
+// electric-shock-like sensations) are well documented and most associated with
+// abrupt cessation (Papp & Onton 2018), which tapering mitigates only partly.
+// Shorter half-life drugs (e.g. paroxetine) are linked to more reports. The
+// neurobiology remains unresolved (review, Frontiers), so no specific mechanism
+// is modelled. Movement as a zap trigger comes from patient reports and was
+// not verified in the research pass.
+// Rendered: dizziness (sway, slight smear, faint doubling), jumpy reactivity,
+// a dimmer, flatter mood, and the signature brain zap: a near-instant electric
+// jolt through the whole network. Slider: how the medication was stopped.
+const TAPER = ['Abrupt stop', 'Fast taper', 'Slow taper'];
+function ssriWithdrawal(api) {
+  const ONSET = 12;
+  const sev = eased(1, 0.4);
+  let t0 = 0, last = 0, nextZap = 0, zap = null, moveEnergy = 0;
+  const onMove = (e) => { moveEnergy = Math.min(1, moveEnergy + Math.hypot(e.movementX || 0, e.movementY || 0) / 900); };
+  return {
+    start() {
+      t0 = last = performance.now() / 1000;
+      nextZap = t0 + 5 + Math.random() * 5;
+      api.setModColor('#e6f6ff'); // electric white-blue
+      addEventListener('pointermove', onMove, { passive: true });
+    },
+    stop() { removeEventListener('pointermove', onMove); },
+    setParam(v) {
+      const L = Math.max(0, Math.min(2, Math.round(v)));
+      const k = [1, 0.6, 0.3][L];
+      if (!t0) sev.snap(k); else sev.set(k);
+    },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = sev.step(dt);
+      const on = ease((now - t0) / ONSET);
+      moveEnergy *= Math.pow(0.4, dt);
+      // brain zap: on a loose schedule, more likely just after movement
+      const due = now >= nextZap || (on > 0.6 && moveEnergy > 0.35 && Math.random() < dt * 2.5 * k);
+      if (due && on > 0.4 && (!zap || now - zap.at > 1.2)) {
+        zap = { at: now, mag: 0.7 + 0.5 * Math.random() };
+        api.wave({ speed: 140, reach: 60, max: 45, depth: 10, jitter: 0.02 });
+        if (Math.random() < 0.3) setTimeout(() => api.wave({ speed: 140, reach: 50, max: 30, depth: 12, jitter: 0.02 }), 140);
+        nextZap = now + lerp(16, 4, k) * (0.6 + Math.random() * 0.8);
+        moveEnergy = 0;
+      }
+      let z = 0;
+      if (zap) {
+        const age = now - zap.at;
+        z = Math.exp(-age / 0.11) * zap.mag;
+        if (age > 2) zap = null;
+      }
+      const sway = 0.12 + 0.45 * k;                        // dizziness
+      api.setMods(blend({
+        sway: sway * (1 + 0.6 * Math.sin(now * 0.7) ** 2),
+        trails: 0.18 * k,
+        ghost: 0.12 * k + 0.45 * z,
+        transmit: 1 + 0.15 * k,                            // jumpy, irritable reactivity
+        spont: 1 + 0.2 * k,
+        jitter: 0.12 * k,
+        sat: (1 - 0.15 * k) * (1 - 0.35 * z),              // flatter mood, bleached at the zap
+        gain: (1 - 0.08 * k) * (1 + 0.65 * z),
+        spark: 1 + 2.2 * z,
+        pulseMix: Math.min(1, 0.95 * z + 0.15 * k),
+        fov: -2.6 * z,
+        shake: 0.05 * z,
+        tint: [1 - 0.02 * k, 1, 1 + 0.04 * k],
+      }, on));
+    },
+  };
+}
+
 // name (as shown in the dropdown) -> { factory, param spec }
 const PROFILES = {
   'Video game (dopamine hits)': {
@@ -650,6 +723,7 @@ const PROFILES = {
     factory: amphetamines,
     param: { min: 0, max: AMPH.length - 1, step: 1, def: 1, label: (v) => AMPH[v] },
   },
+  'SSRI withdrawal': { factory: ssriWithdrawal, param: { min: 0, max: 2, step: 1, def: 0, label: (v) => TAPER[v] } },
   'Schizophrenia': { factory: schizophrenia, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => SZ[v] } },
   'ADHD': { factory: adhd, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => ADHD_P[v] } },
   "Tourette's": { factory: tourettes, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => TS[v] } },
@@ -715,6 +789,7 @@ export function initStates(api) {
       const name = picks[slot] && PROFILES[picks[slot]] ? picks[slot] : '';
       const cur = slots[slot];
       if ((cur ? cur.name : '') === name) continue;
+      if (cur && cur.profile.stop) cur.profile.stop();
       delete slots[slot];
       if (name) {
         const layer = { name, mods: {}, color: null };
