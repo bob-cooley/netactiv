@@ -4,8 +4,8 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=4';
-import { initStates, isCalibrated, paramSpec } from './states.js?v=9';
-import { CITATIONS } from './citations.js?v=1';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=10';
+import { CITATIONS } from './citations.js?v=2';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -52,7 +52,7 @@ whenReady((api) => {
   ];
 
   const MOODS = ['Excited', 'Sad', 'Depressed', 'Relieved', 'Aroused', 'Video game (dopamine hits)'];
-  const ALTERED = ['Drunk (alcohol)', 'High (THC)', 'Rolling (MDMA)', 'Amphetamines', 'Coffee (caffeine)'];
+  const ALTERED = ['Drunk (alcohol)', 'High (THC)', 'Rolling (MDMA)', 'Amphetamines', 'Coffee (caffeine)', 'SSRI withdrawal'];
   const NEURO = ['Autism', 'ADHD', 'Bipolar', 'Mania', 'Schizophrenia', "Tourette's"];
 
   // ── Gear ──────────────────────────────────────────────────────────────────

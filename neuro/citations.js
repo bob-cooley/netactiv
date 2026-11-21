@@ -50,6 +50,14 @@ export const CITATIONS = [
     ],
   },
   {
+    group: 'SSRI withdrawal',
+    items: [
+      { text: 'Henssler et al. (2024). Incidence of antidepressant discontinuation symptoms: a systematic review and meta-analysis. Lancet Psychiatry.', url: 'https://pubmed.ncbi.nlm.nih.gov/38851198/' },
+      { text: 'Papp & Onton (2018). Brain zaps: an underappreciated symptom of antidepressant discontinuation.', url: 'https://pubmed.ncbi.nlm.nih.gov/30605268/' },
+      { text: 'SSRI discontinuation syndrome: a review of the clinical evidence and the possible mechanisms involved.', url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3627130/' },
+    ],
+  },
+  {
     group: 'Schizophrenia',
     items: [
       { text: 'Striatal presynaptic dopamine in schizophrenia: meta-analysis of PET studies.', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3523905' },
