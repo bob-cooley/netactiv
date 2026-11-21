@@ -137,7 +137,7 @@ function coffee(api) {
 // ── shared helpers for dose-style profiles ──────────────────────────────────
 // Blend a set of modifier targets from neutral by an amount 0..1 (onset ramp).
 const NEUTRAL = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0,
-  timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, vignette: 0, focusWander: 0 };
+  timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, vignette: 0, focusWander: 0, jitter: 0 };
 function blend(target, amt) {
   const out = {};
   for (const k of Object.keys(NEUTRAL)) {
@@ -327,6 +327,303 @@ function amphetamines(api) {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Neurodivergence (base layer). Research pass, Nov 2026. Group-level findings;
+// individuals vary widely. Rendered as differences, not deficits.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Schizophrenia ───────────────────────────────────────────────────────────
+// Findings: elevated striatal dopamine synthesis capacity (PET meta-analysis,
+// ~14% above controls, large effect; Fusar-Poli & Meyer-Lindenberg 2013), the
+// aberrant-salience account (Kapur 2003): irrelevant signals acquire meaning;
+// robustly reduced 40 Hz gamma responses linked to parvalbumin interneurons
+// (Grent-'t-Jong et al. 2023; Gonzalez-Burgos & Lewis 2012) - i.e. weaker
+// timing precision and synchrony.
+// Rendered: neurons flare with nothing behind them, sparks on silent branches,
+// loosened signal timing, irregular salience storms, a faint violet cast.
+const SZ = ['Low', 'Moderate', 'High'];
+function schizophrenia(api) {
+  const ONSET = 10;
+  const lvl = eased(1, 0.4);
+  let t0 = 0, last = 0, nextPhantom = 0, storm = null, nextStorm = 0;
+  return {
+    start() {
+      t0 = last = performance.now() / 1000;
+      nextPhantom = t0 + 2; nextStorm = t0 + ONSET + 4 + Math.random() * 6;
+      api.setModColor('#c79bff');
+    },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.45 + (lvl.step(dt) / 2) * 0.55;
+      const on = ease((now - t0) / ONSET);
+      if (now >= nextPhantom && on > 0.2) {
+        api.phantom({ flashes: Math.random() < 0.5 * k ? 1 : 0, sparks: 1 + Math.round(3 * k) });
+        nextPhantom = now + lerp(2.6, 0.6, k) * (0.5 + Math.random());
+      }
+      // salience storm: a short cluster of meaning-without-cause
+      if (now >= nextStorm && on > 0.8) {
+        storm = { at: now, len: 1.5 + 2 * k };
+        nextStorm = now + lerp(16, 7, k) + Math.random() * 6;
+      }
+      let st = 0;
+      if (storm) {
+        const age = now - storm.at;
+        if (age > storm.len) storm = null;
+        else {
+          st = Math.sin(Math.PI * age / storm.len);
+          if (Math.random() < dt * 9) api.phantom({ flashes: 1, sparks: 3 });
+        }
+      }
+      api.setMods(blend({
+        jitter: 0.12 + 0.38 * k,                 // weaker timing precision
+        spont: 1 + 0.35 * k,
+        transmit: 1 + 0.08 * k,
+        spark: 1 + 0.6 * k + st * 0.8,
+        gain: 1 + st * 0.12 * k,
+        sat: 1 + 0.06 * k,
+        pulseMix: 0.25 * k + st * 0.3,
+        focusWander: 0.25 * k + st * 0.4,
+        tint: [1 + 0.02 * k, 1 - 0.02 * k, 1 + 0.05 * k],
+      }, on));
+    },
+  };
+}
+
+// ── ADHD ────────────────────────────────────────────────────────────────────
+// Findings: default-mode interference hypothesis (Sonuga-Barke & Castellanos
+// 2007): task-negative network activity fails to stay suppressed and intrudes
+// periodically; increased intra-individual reaction-time variability, often
+// slow (<0.1 Hz) fluctuations (Tamm et al. 2012 review; Karalunas et al.);
+// catecholamine (dopamine/noradrenaline) signalling differences, the target of
+// stimulant medication. Hyperfocus is widely reported, less studied.
+// Rendered: slow surges and sags in pace; attention lapses where focus jumps
+// off-subject while activity erupts at the edges; occasional hyperfocus spells
+// (tunnel, crisp, steady). Slider: DSM presentations.
+const ADHD_P = ['Inattentive', 'Combined', 'Hyperactive-impulsive'];
+function adhd(api) {
+  const ONSET = 6;
+  const lvl = eased(1, 0.5);
+  let t0 = 0, last = 0, nextLapse = 0, lapse = null, hyper = null, nextHyper = 0, phase = Math.random() * 10;
+  return {
+    start() {
+      t0 = last = performance.now() / 1000;
+      nextLapse = t0 + ONSET + 2 + Math.random() * 4;
+      nextHyper = t0 + ONSET + 14 + Math.random() * 10;
+      api.setModColor('#bff4ff');
+    },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const h = lvl.step(dt) / 2;                // 0 inattentive .. 1 hyperactive-impulsive
+      const ia = 1 - h * 0.6;                    // inattentive weight
+      const on = ease((now - t0) / ONSET);
+      // slow variability: pace surges and sags on a ~0.05-0.08 Hz cycle
+      const slow = Math.sin(now * 0.33 + phase) * 0.6 + Math.sin(now * 0.51 + phase * 2) * 0.4;
+      if (!hyper && now >= nextLapse && on > 0.6) {
+        lapse = { at: now, len: 1.2 + Math.random() * 1.6 * ia };
+        api.focusTo(Math.random() < 0.5 ? 4 + Math.random() * 3 : 28 + Math.random() * 12, lapse.len);
+        api.burstPeriphery(3 + Math.round(3 * h), 0.05);
+        nextLapse = now + lerp(5, 9, h) * (0.6 + Math.random() * 0.8) / (0.6 + ia * 0.6);
+      }
+      if (lapse && now - lapse.at > lapse.len) lapse = null;
+      if (!hyper && now >= nextHyper) { hyper = { at: now, len: 6 + Math.random() * 5 }; lapse = null; }
+      let hf = 0;
+      if (hyper) {
+        const age = now - hyper.at;
+        if (age > hyper.len) { hyper = null; nextHyper = now + 22 + Math.random() * 16; nextLapse = now + 3; }
+        else hf = Math.min(1, age / 0.8, (hyper.len - age) / 0.8);
+      }
+      const lp = lapse ? 1 : 0;
+      api.setMods(blend({
+        speed: (1 + 0.12 * h + slow * (0.18 + 0.12 * h)) * (1 - 0.15 * hf),
+        spont: 1 + 0.35 * h + 0.25 * ia * lp,
+        timeScale: 1 + 0.08 * h - 0.06 * hf,
+        transmit: 1 + 0.05 * h,
+        focusWander: (0.35 * ia + 0.15) * (1 - hf),
+        shake: 0.004 * h * (1 - hf),
+        blur: 1 + 0.25 * lp - 0.4 * hf,
+        vignette: 0.75 * hf,
+        sat: 1 + 0.1 * hf,
+        gain: 1 + 0.05 * hf,
+        pulseMix: 0.45 * hf,
+      }, on));
+    },
+  };
+}
+
+// ── Tourette's ──────────────────────────────────────────────────────────────
+// Findings: cortico-striato-thalamo-cortical (CSTC) loop dysfunction; post-
+// mortem reductions in striatal interneurons, including cholinergic
+// tonically-active neurons that normally counterbalance dopamine (Kataoka et al.
+// 2010; review Bloch, State & Pittenger); dopamine involvement (antagonists
+// reduce tics). Tics are commonly preceded by a premonitory urge, linked to the
+// insula and supplementary motor area (Wohlgemuth et al. 2025 scoping review);
+// tics can be briefly suppressed, after which the urge resolves on release.
+// Rendered: tension builds (tightening frame, rising tremor, amber tint), then
+// the same loop of neurons discharges with a sharp jolt, followed by relief.
+const TS = ['Occasional', 'Frequent', 'Persistent'];
+function tourettes(api) {
+  const ONSET = 5;
+  const lvl = eased(1, 0.5);
+  let t0 = 0, last = 0, loopIds = [], urge = null, relief = 0, tic = null;
+  function newUrge(now, k) {
+    const suppressed = Math.random() < 0.25;              // held back longer, released harder
+    urge = { at: now, len: (lerp(7, 2.5, k) + Math.random() * 2.5) * (suppressed ? 1.8 : 1), mag: suppressed ? 1.5 : 1 };
+  }
+  return {
+    start() { t0 = last = performance.now() / 1000; api.setModColor('#ffc27a'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = lvl.step(dt) / 2;
+      const on = ease((now - t0) / ONSET);
+      if (!loopIds.length || Math.random() < dt * 0.02) loopIds = api.cluster(4 + Math.round(2 * k)); // the habitual loop
+      if (!urge && !tic && on > 0.8 && now > relief) newUrge(now, k);
+      let u = 0;
+      if (urge) {
+        u = Math.min(1, (now - urge.at) / urge.len);
+        if (u >= 1) {
+          api.fireIds(loopIds, 0.03);
+          if (Math.random() < 0.5) api.fireIds(loopIds, 0.03);
+          tic = { at: now, mag: urge.mag };
+          urge = null;
+          relief = now + 1.2 + Math.random() * (2.5 - 1.5 * k);
+        }
+      }
+      let jolt = 0;
+      if (tic) {
+        const age = now - tic.at;
+        if (age > 1.5) tic = null;
+        else jolt = Math.exp(-age / 0.18) * tic.mag;
+      }
+      const tension = u * u;
+      api.setMods(blend({
+        vignette: 0.45 * tension,
+        shake: 0.006 * tension + 0.05 * jolt,
+        spark: 1 + 0.5 * tension + 1.2 * jolt,
+        gain: 1 + 0.05 * tension + 0.22 * jolt,
+        pulseMix: 0.5 * tension + 0.4 * jolt,
+        fov: -2.2 * jolt,
+        spont: 1 + 0.15 * k,
+        transmit: 1 + 0.06 * k,
+        tint: [1 + 0.03 * tension, 1, 1 - 0.03 * tension],
+      }, on));
+    },
+  };
+}
+
+// ── Autism ──────────────────────────────────────────────────────────────────
+// Findings (kept to the better-supported end): excitation/inhibition imbalance
+// hypothesis (Rubenstein & Merzenich 2003) - direction still disputed;
+// connectivity findings are mixed (local and long-range over- and under-
+// connectivity both reported), so they are not modelled directly. Predictive-
+// processing accounts propose less weight on prior expectation relative to
+// sensory input ("hypo-priors"), consistent with widely reported sensory
+// hypersensitivity and attention to detail.
+// Rendered: crisper, more detailed and vivid responses; every event lands with
+// more intensity; more fine-grained local activity; no smoothing waves; periodic
+// sensory surges. Slider: sensory sensitivity.
+const AUT = ['Low', 'Moderate', 'High'];
+function autism(api) {
+  const ONSET = 6;
+  const lvl = eased(1, 0.5);
+  let t0 = 0, last = 0, nextSurge = 0, surge = null;
+  return {
+    start() { t0 = last = performance.now() / 1000; nextSurge = t0 + ONSET + 3; api.setModColor('#dcd0ff'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.4 + (lvl.step(dt) / 2) * 0.6;
+      const on = ease((now - t0) / ONSET);
+      if (now >= nextSurge && on > 0.6) {
+        surge = { at: now, len: 2.2 + 1.5 * k };
+        api.burst(4 + Math.round(4 * k), 0.025);
+        api.phantom({ flashes: 0, sparks: 6 + Math.round(8 * k) });
+        nextSurge = now + lerp(13, 6, k) * (0.7 + Math.random() * 0.6);
+      }
+      let sg = 0;
+      if (surge) {
+        const age = now - surge.at;
+        if (age > surge.len) surge = null;
+        else sg = Math.min(1, age / 0.25) * Math.exp(-age / (surge.len * 0.5));
+      }
+      api.setMods(blend({
+        blur: 1 - 0.45 * k,                       // detail stays sharp throughout the depth
+        spark: 1 + 0.7 * k + 0.9 * sg,
+        sat: 1 + 0.15 * k + 0.12 * sg,
+        gain: 1 + 0.04 * k + 0.18 * sg,
+        spont: 1 + 0.3 * k,                       // more fine-grained local activity
+        transmit: 1 + 0.05 * k,
+        pulseMix: 0.35 * k + 0.3 * sg,
+        fov: -1.2 * sg,
+        vignette: 0.25 * sg,
+      }, on));
+    },
+  };
+}
+
+// ── Bipolar / Mania ─────────────────────────────────────────────────────────
+// Findings: reward/behavioural-approach hypersensitivity, particularly
+// implicated in hypomania/mania (Alloy et al. 2015 review); circadian
+// dysregulation as vulnerability and course factor (ISBD chronobiology task
+// force); a proposed circadian-dopamine link (2025 review). Depressive episodes
+// show reduced reward responsiveness. Episodes are the defining feature.
+// Rendered on one axis, p = -1 (depressive) .. 0 (balanced) .. +1 (manic):
+// depressive: slow, sparse, dim, cool, rumination loops; manic: fast, dense,
+// saturated, warm, frequent spreading waves and reward-like bursts.
+const BIP = ['Depressive', 'Low', 'Balanced', 'Hypomanic', 'Manic'];
+const MANIA = ['Hypomania', 'Mania', 'Severe mania'];
+function polar(api, axisOf) {
+  const ONSET = 10;
+  const ax = eased(0, 0.25);                 // mood shifts gradually
+  let t0 = 0, last = 0, nextWave = 0, nextBurst = 0, loop = null, nextLoop = 0;
+  return {
+    start() {
+      t0 = last = performance.now() / 1000;
+      nextWave = t0 + 4; nextBurst = t0 + 3; nextLoop = t0 + 6;
+      api.setModColor('#ffbf6b');
+    },
+    setParam(v) { const p = axisOf(v); if (!t0) ax.snap(p); else ax.set(p); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const p = ax.step(dt);
+      const up = Math.max(0, p), dn = Math.max(0, -p);
+      const on = ease((now - t0) / ONSET);
+      if (up > 0.3 && on > 0.5) {
+        if (now >= nextWave) { api.wave({ speed: 16, reach: 30 + 20 * up, max: Math.round(20 + 25 * up), jitter: 0.2 }); nextWave = now + lerp(9, 3, Math.min(1, up)); }
+        if (now >= nextBurst) { api.burst(3 + Math.round(4 * up), 0.03); nextBurst = now + lerp(5, 1.4, Math.min(1, up)) * (0.6 + Math.random() * 0.8); }
+      }
+      if (dn > 0.4 && on > 0.5) {
+        // rumination: the same small cluster replays
+        if (!loop && now >= nextLoop) { loop = { ids: api.cluster(3), reps: 3 + Math.round(3 * dn), at: now }; }
+        if (loop && now >= loop.at) {
+          api.fireIds(loop.ids, 0.3, false);
+          loop.reps -= 1; loop.at = now + 2.2;
+          if (loop.reps <= 0) { loop = null; nextLoop = now + 6 + Math.random() * 6; }
+        }
+      }
+      const u = Math.min(1.3, up);
+      api.setMods(blend({
+        speed: 1 + 0.4 * u - 0.28 * dn,
+        timeScale: 1 + 0.18 * u - 0.12 * dn,
+        spont: 1 + 0.8 * u - 0.55 * dn,
+        transmit: 1 + 0.22 * u - 0.15 * dn,
+        sat: 1 + 0.32 * u - 0.3 * dn,
+        gain: 1 + 0.1 * u - 0.15 * dn,
+        spark: 1 + 0.6 * u - 0.3 * dn,
+        trails: 0.25 * Math.max(0, u - 0.4),     // racing thoughts at the top end
+        pulseMix: 0.5 * u,
+        focusWander: 0.35 * Math.max(0, u - 0.6),
+        vignette: 0.3 * dn,
+        tint: [1 + 0.04 * u - 0.06 * dn, 1 - 0.01 * u - 0.02 * dn, 1 - 0.03 * u + 0.06 * dn],
+      }, on));
+    },
+  };
+}
+const bipolar = (api) => polar(api, (v) => [-1, -0.5, 0, 0.5, 1][Math.max(0, Math.min(4, Math.round(v)))]);
+const mania = (api) => polar(api, (v) => [0.55, 1.0, 1.3][Math.max(0, Math.min(2, Math.round(v)))]);
+
 // name (as shown in the dropdown) -> { factory, param spec }
 const PROFILES = {
   'Video game (dopamine hits)': {
@@ -353,6 +650,12 @@ const PROFILES = {
     factory: amphetamines,
     param: { min: 0, max: AMPH.length - 1, step: 1, def: 1, label: (v) => AMPH[v] },
   },
+  'Schizophrenia': { factory: schizophrenia, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => SZ[v] } },
+  'ADHD': { factory: adhd, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => ADHD_P[v] } },
+  "Tourette's": { factory: tourettes, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => TS[v] } },
+  'Autism': { factory: autism, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => AUT[v] } },
+  'Bipolar': { factory: bipolar, param: { min: 0, max: 4, step: 1, def: 2, label: (v) => BIP[v] } },
+  'Mania': { factory: mania, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => MANIA[v] } },
 };
 
 export const isCalibrated = (name) => !!PROFILES[name];
@@ -368,7 +671,7 @@ export const paramSpec = (name) => (PROFILES[name] ? PROFILES[name].param : null
 const SLOTS = ['neuro', 'mood', 'altered'];
 const MULT = ['gain', 'sat', 'speed', 'spont', 'spark', 'transmit', 'timeScale', 'blur'];
 const ADD = { fov: [-8, 8], shake: [0, 0.12], sway: [0, 2], ghost: [0, 0.8], trails: [0, 0.94],
-  vignette: [0, 1.2], focusWander: [0, 2], pulseMix: [0, 1] };
+  vignette: [0, 1.2], focusWander: [0, 2], pulseMix: [0, 1], jitter: [0, 0.8] };
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
 const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const rgbToHex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
