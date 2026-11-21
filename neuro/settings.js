@@ -3,7 +3,7 @@
 // Talks to the engine through window.__neuro (see neuro.js).
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
-import { initCursors } from './cursors.js?v=3';
+import { initCursors } from './cursors.js?v=4';
 import { initStates, isCalibrated, paramSpec } from './states.js?v=9';
 import { CITATIONS } from './citations.js?v=1';
 
@@ -324,8 +324,8 @@ function gearSvg() {
 function injectStyles() {
   const css = `
   :root {
-    --ns-mag: rgb(158,78,116);
-    --ns-mag-dim: rgba(158,78,116,0.45);
+    --ns-mag: #b8c4d0;                 /* accent: cool light steel */
+    --ns-mag-dim: rgba(255,255,255,0.28);
     --ns-teal: #5aaebb;
     --ns-text: #d4d4da;
     --ns-muted: #9a9aa6;
@@ -398,7 +398,7 @@ function injectStyles() {
   .ns-panel::-webkit-scrollbar { display: none; }
   .ns-panel[hidden] { display: none; }
 
-  .ns-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid rgba(158,78,116,0.2); }
+  .ns-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid rgba(184,196,208,0.2); }
   .ns-title { font-size: 16px; letter-spacing: .24em; text-transform: lowercase; }
   .ns-title b { color: var(--ns-mag); font-weight: 400; }
   .ns-tele { margin-left: auto; font-family: var(--ns-mono); font-size: 12px; color: var(--ns-muted); }
@@ -413,7 +413,7 @@ function injectStyles() {
     color: var(--ns-text); background: rgba(7,7,7,0.35); border: 1px solid var(--ns-mag-dim);
     padding: 6px 12px; cursor: pointer;
   }
-  .ns-btn:hover { border-color: var(--ns-mag); color: #fff; background: rgba(158,78,116,0.14); }
+  .ns-btn:hover { border-color: var(--ns-mag); color: #fff; background: rgba(184,196,208,0.14); }
 
   .ns-label { font-size: 13px; letter-spacing: .1em; text-transform: lowercase; color: var(--ns-muted); }
   .ns-note { font-family: var(--ns-mono); font-size: 12px; color: var(--ns-muted); letter-spacing: 0; text-transform: none; }
@@ -443,14 +443,14 @@ function injectStyles() {
   .ns-row input[type=range]::-moz-range-progress, .ns-range::-moz-range-progress { height: 3px; background: var(--ns-teal); }
   .ns-row input[type=range]::-webkit-slider-thumb, .ns-range::-webkit-slider-thumb {
     -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5.5px; border-radius: 50%;
-    background: #0b0b0f; border: 2px solid var(--ns-mag); box-shadow: 0 0 6px rgba(158,78,116,0.6);
+    background: #0b0b0f; border: 2px solid var(--ns-mag); box-shadow: 0 0 6px rgba(184,196,208,0.6);
   }
   .ns-row input[type=range]::-moz-range-thumb, .ns-range::-moz-range-thumb {
     width: 10px; height: 10px; border-radius: 50%; background: #0b0b0f; border: 2px solid var(--ns-mag);
   }
   .ns-row input[type=range]:focus-visible, .ns-range:focus-visible { outline: 1px solid var(--ns-teal); outline-offset: 2px; }
 
-  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(158,78,116,0.2); }
+  .ns-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding-top: 12px; border-top: 1px solid rgba(184,196,208,0.2); }
   .ns-sel { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; min-width: 0; }
   .ns-sel select {
     font-family: var(--ns-mono); font-size: 13px; color: var(--ns-text);
