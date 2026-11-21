@@ -58,6 +58,43 @@ export const CITATIONS = [
     ],
   },
   {
+    group: 'Excited (arousal)',
+    items: [
+      { text: 'Locus coeruleus-noradrenaline system and cortical activation (review).', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6742544' },
+      { text: 'Locus coeruleus-noradrenaline modulation of cortical state and behaviour (review).', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3278579' },
+    ],
+  },
+  {
+    group: 'Sad',
+    items: [
+      { text: 'Mayberg et al. (1999). Reciprocal limbic-cortical function and negative mood: converging PET findings in depression and normal sadness. Am J Psychiatry.', url: 'https://www.doi.org/10.1176/AJP.156.5.675' },
+      { text: 'Subgenual anterior cingulate subregions in sadness and fear: cytoarchitectonic and functional meta-analysis.', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4801475' },
+    ],
+  },
+  {
+    group: 'Depressed',
+    items: [
+      { text: 'Reward processing in major depression: meta-analysis of neuroimaging (2019).', url: 'https://link.springer.com/10.1038/s41398-019-0644-x' },
+      { text: 'Nucleus accumbens connectivity and anhedonia in depression: meta- and mega-analysis (2022).', url: 'https://www.nature.com/articles/s41398-022-01995-x.pdf' },
+      { text: 'Rumination and the default mode network: meta-analysis of brain imaging studies (2020).', url: 'https://pubmed.ncbi.nlm.nih.gov/31655111/' },
+    ],
+  },
+  {
+    group: 'Relieved',
+    items: [
+      { text: 'Leknes et al. (2011). Relief as a reward: hedonic and neural responses to safety from pain. PLoS ONE.', url: 'https://doaj.org/article/254d8bb53ce94291b4820367e71f9e4f' },
+      { text: 'Willems et al. (2023). Omissions of threat trigger subjective relief and reward prediction error-like signaling in the human reward system. eLife.', url: 'https://elifesciences.org/articles/91400' },
+    ],
+  },
+  {
+    group: 'Aroused',
+    items: [
+      { text: 'Poeppl et al. (2014). The functional neuroanatomy of male psychosexual and physiosexual arousal: a quantitative meta-analysis.', url: 'https://pubmed.ncbi.nlm.nih.gov/23674246/' },
+      { text: 'Neural substrates of sexual arousal are not sex dependent (2019 meta-analysis).', url: 'https://pubmed.ncbi.nlm.nih.gov/31308220/' },
+      { text: 'When the brain turns on with sexual desire: fMRI findings, issues, and future directions (2023 review).', url: 'https://pubmed.ncbi.nlm.nih.gov/37500582/' },
+    ],
+  },
+  {
     group: 'Schizophrenia',
     items: [
       { text: 'Striatal presynaptic dopamine in schizophrenia: meta-analysis of PET studies.', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3523905' },

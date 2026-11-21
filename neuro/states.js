@@ -697,6 +697,241 @@ function ssriWithdrawal(api) {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Moods (layer above neurodivergence). Research pass Nov 2026: findings for
+// moods are group-level and partly contested; noted per profile.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Excited ─────────────────────────────────────────────────────────────────
+// Findings: arousal is driven by the locus coeruleus-noradrenaline system;
+// LC activation produces cortical EEG desynchronization (optogenetic and
+// stimulation studies, reviews PMC6742544, PMC3278579), and adaptive-gain
+// accounts (Aston-Jones & Cohen 2005) describe sharper, higher-gain responses.
+// Rendered: faster and busier, independent (desynchronised) firing, quick
+// flurries of activity, brighter sparks, a warm bright cast.
+const EXC = ['Mild', 'Lively', 'Thrilled'];
+function excited(api) {
+  const ONSET = 4;
+  const lvl = eased(1, 0.6);
+  let t0 = 0, last = 0, nextFlurry = 0, flurry = null;
+  return {
+    start() { t0 = last = performance.now() / 1000; nextFlurry = t0 + 2; api.setModColor('#ffd27a'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.45 + (lvl.step(dt) / 2) * 0.55;
+      const on = ease((now - t0) / ONSET);
+      if (now >= nextFlurry && on > 0.5) {
+        flurry = { at: now, n: 3 + Math.round(4 * k), i: 0 };
+        nextFlurry = now + lerp(6, 2.2, k) * (0.6 + Math.random() * 0.8);
+      }
+      if (flurry && now - flurry.at > flurry.i * 0.18) {
+        api.burst(2 + Math.round(2 * k), 0.02);
+        flurry.i++;
+        if (flurry.i >= flurry.n) flurry = null;
+      }
+      const surge = 0.5 + 0.5 * Math.sin(now * 0.9);
+      api.setMods(blend({
+        speed: 1 + 0.3 * k + 0.12 * k * surge,
+        timeScale: 1 + 0.15 * k,
+        spont: 1 + 0.7 * k,
+        transmit: 1 + 0.08 * k,
+        jitter: 0.06 * k,                         // independent, less synchronised firing
+        spark: 1 + 0.6 * k,
+        sat: 1 + 0.2 * k,
+        gain: 1 + 0.07 * k,
+        pulseMix: 0.4 * k,
+        tint: [1 + 0.04 * k, 1 + 0.02 * k, 1 - 0.02 * k],
+      }, on));
+    },
+  };
+}
+
+// ── Sad ─────────────────────────────────────────────────────────────────────
+// Findings: transient sadness induction raises subgenual cingulate (limbic)
+// activity and lowers right dorsolateral prefrontal / parietal activity, a
+// reciprocal limbic-cortical pattern (Mayberg et al. 1999); a later meta-
+// analysis ties a specific subgenual subregion (s24) to sadness. Unlike
+// depression, normal sadness is transient and reward responsiveness persists.
+// Rendered: slower, quieter, cooler and greyer, but still responsive; slow
+// sighs that dim and sink the view; activity lingers a little.
+const SAD = ['Wistful', 'Sad', 'Grieving'];
+function sad(api) {
+  const ONSET = 8;
+  const lvl = eased(1, 0.4);
+  let t0 = 0, last = 0, nextSigh = 0, sigh = null;
+  return {
+    start() { t0 = last = performance.now() / 1000; nextSigh = t0 + ONSET; api.setModColor('#9fb8ff'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.4 + (lvl.step(dt) / 2) * 0.6;
+      const on = ease((now - t0) / ONSET);
+      if (now >= nextSigh) { sigh = { at: now, len: 3.5 + 1.5 * k }; nextSigh = now + lerp(16, 8, k) + Math.random() * 5; }
+      let sg = 0;
+      if (sigh) {
+        const age = now - sigh.at;
+        if (age > sigh.len) sigh = null;
+        else sg = Math.sin(Math.PI * age / sigh.len);
+      }
+      api.setMods(blend({
+        speed: 1 - 0.25 * k - 0.1 * sg,
+        timeScale: 1 - 0.1 * k,
+        spont: 1 - 0.3 * k,
+        transmit: 1 - 0.05 * k,                   // still responsive
+        sat: 1 - 0.25 * k - 0.1 * sg,
+        gain: 1 - 0.1 * k - 0.1 * sg,
+        trails: 0.15 * k,                         // things linger
+        vignette: 0.2 * k + 0.2 * sg,
+        sway: 0.12 * sg,
+        pulseMix: 0.35 * k,
+        tint: [1 - 0.06 * k, 1 - 0.02 * k, 1 + 0.06 * k],
+      }, on));
+    },
+  };
+}
+
+// ── Depressed ───────────────────────────────────────────────────────────────
+// Findings: reward circuitry shows blunted ventral-striatal responses with
+// orbitofrontal hyper-responses (2019 meta-analysis, 41 studies), and reduced
+// nucleus-accumbens network connectivity linked to anhedonia severity (2022
+// meta/mega-analysis). Default-mode hyperconnectivity and its link to
+// rumination are contested (2016 meta-analysis vs later null/opposite
+// findings), so rumination is modelled conservatively as occasional replay.
+// Rendered: sparse, slow, heavily desaturated and dim; signals fade before
+// they travel far; the same small cluster replays now and then.
+const DEP = ['Mild', 'Moderate', 'Severe'];
+function depressed(api) {
+  const ONSET = 10;
+  const lvl = eased(1, 0.3);
+  let t0 = 0, last = 0, loop = null, nextLoop = 0;
+  return {
+    start() { t0 = last = performance.now() / 1000; nextLoop = t0 + ONSET; api.setModColor('#8f97a8'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.4 + (lvl.step(dt) / 2) * 0.6;
+      const on = ease((now - t0) / ONSET);
+      if (!loop && now >= nextLoop && on > 0.7) loop = { ids: api.cluster(3), reps: 2 + Math.round(3 * k), at: now };
+      if (loop && now >= loop.at) {
+        api.fireIds(loop.ids, 0.35, false);
+        loop.reps -= 1; loop.at = now + 2.6;
+        if (loop.reps <= 0) { loop = null; nextLoop = now + lerp(18, 8, k) + Math.random() * 6; }
+      }
+      api.setMods(blend({
+        speed: 1 - 0.35 * k,
+        timeScale: 1 - 0.15 * k,
+        spont: 1 - 0.55 * k,
+        transmit: 1 - 0.3 * k,                    // blunted: signals fizzle
+        spark: 1 - 0.4 * k,
+        sat: 1 - 0.5 * k,
+        gain: 1 - 0.2 * k,
+        vignette: 0.35 * k,
+        blur: 1 + 0.25 * k,
+        pulseMix: 0.5 * k,
+        tint: [1 - 0.03 * k, 1 - 0.03 * k, 1 + 0.01 * k],
+      }, on));
+    },
+  };
+}
+
+// ── Relieved ────────────────────────────────────────────────────────────────
+// Findings: relief behaves as a reward; its pleasantness tracks nucleus
+// accumbens activity (Leknes et al. 2011), and unexpected omission of threat
+// triggers reward-prediction-error-like signals in reward and salience
+// regions (Willems et al. 2023, eLife; the formal RPE interpretation is
+// debated). Relief depends on a prior negative expectation.
+// Rendered as a cycle: tension builds (tight, cool, jittery), then the threat
+// lifts - a warm wave releases outward, the frame opens, pace eases - followed
+// by a calm afterglow. Slider: size of the threat (bigger threat, bigger relief).
+const REL = ['Minor', 'Moderate', 'Major'];
+function relieved(api) {
+  const ONSET = 3;
+  const lvl = eased(1, 0.5);
+  let t0 = 0, last = 0, phase = 'tense', at = 0, len = 0;
+  const begin = (p, now, k) => {
+    phase = p; at = now;
+    len = p === 'tense' ? lerp(5, 9, k) * (0.8 + Math.random() * 0.4) : lerp(7, 11, k);
+  };
+  return {
+    start() { t0 = last = performance.now() / 1000; begin('tense', t0, 0.5); api.setModColor('#ffd9a0'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.4 + (lvl.step(dt) / 2) * 0.6;
+      const on = ease((now - t0) / ONSET);
+      const age = now - at;
+      if (phase === 'tense' && age > len) {
+        begin('release', now, k);
+        api.wave({ speed: 10, reach: 45, max: Math.round(20 + 20 * k), depth: 16, jitter: 0.3 });
+      } else if (phase === 'release' && age > len) begin('tense', now, k);
+      let tension = 0, release = 0;
+      if (phase === 'tense') tension = ease(age / len);
+      else release = Math.exp(-age / (len * 0.45));
+      api.setMods(blend({
+        vignette: 0.45 * k * tension,
+        jitter: 0.15 * k * tension,
+        shake: 0.004 * k * tension,
+        spont: 1 + 0.25 * k * tension - 0.15 * (1 - tension) * (phase === 'release' ? 1 : 0),
+        speed: 1 + 0.1 * k * tension - 0.2 * release,
+        sat: 1 - 0.1 * tension + 0.25 * k * release,
+        gain: 1 - 0.04 * tension + 0.15 * k * release,
+        spark: 1 + 0.6 * k * release,
+        pulseMix: 0.7 * k * release,
+        fov: 1.5 * k * release,                   // the frame opens up
+        tint: [1 - 0.03 * tension + 0.06 * k * release, 1 + 0.02 * k * release, 1 + 0.04 * tension - 0.04 * k * release],
+      }, on));
+    },
+  };
+}
+
+// ── Aroused ─────────────────────────────────────────────────────────────────
+// Findings: sexual arousal consistently engages hypothalamus and striatum
+// (incl. ventral striatum) across fMRI meta-analyses (2019 meta-analysis: the
+// neural basis does not differ between women and men; 2023 review), with
+// deactivations in regions for introspection and social cognition that may
+// release inhibition (Poeppl et al. 2014). The hypothalamus drives autonomic
+// responses. Rendered: a slow rhythm that builds in tempo and warmth in waves,
+// attention narrowing to the centre (vignette, little wandering), activity
+// concentrating centrally, warm ember tones. Kept abstract.
+const ARO = ['Low', 'Building', 'High'];
+function aroused(api) {
+  const ONSET = 6;
+  const lvl = eased(1, 0.4);
+  let t0 = 0, last = 0, cycleAt = 0, nextBeat = 0;
+  return {
+    start() { t0 = last = cycleAt = performance.now() / 1000; nextBeat = t0 + 2; api.setModColor('#ffa040'); },
+    setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
+    frame(now) {
+      const dt = Math.min(now - last, 0.5); last = now;
+      const k = 0.4 + (lvl.step(dt) / 2) * 0.6;
+      const on = ease((now - t0) / ONSET);
+      // crescendo cycles: tempo and intensity rise, then settle and begin again
+      const CYCLE = lerp(32, 22, k);
+      let c = (now - cycleAt) / CYCLE;
+      if (c >= 1) { cycleAt = now; c = 0; }
+      const build = c < 0.85 ? ease(c / 0.85) : 1 - ease((c - 0.85) / 0.15);
+      if (now >= nextBeat && on > 0.4) {
+        api.burst(2 + Math.round(3 * k * build), 0.03);
+        nextBeat = now + lerp(3.2, 0.8, build * k);
+      }
+      const beat = Math.pow(0.5 + 0.5 * Math.sin(now * (1.2 + 2.4 * build * k)), 3);
+      api.setMods(blend({
+        speed: 1 + 0.15 * k * build,
+        spont: 1 + 0.5 * k * build,
+        transmit: 1 + 0.12 * k * build,
+        sat: 1 + 0.25 * k * build,
+        gain: 1 + 0.06 * k * build + 0.05 * beat * build,
+        spark: 1 + 0.5 * k * build,
+        vignette: 0.15 + 0.35 * k * build,        // attention narrows
+        blur: 1 + 0.2 * k * build,                // background falls away
+        pulseMix: 0.25 + 0.5 * k * build,
+        tint: [1 + 0.07 * k * build, 1 - 0.01 * k * build, 1 - 0.05 * k * build],
+      }, on));
+    },
+  };
+}
+
 // name (as shown in the dropdown) -> { factory, param spec }
 const PROFILES = {
   'Video game (dopamine hits)': {
@@ -723,6 +958,11 @@ const PROFILES = {
     factory: amphetamines,
     param: { min: 0, max: AMPH.length - 1, step: 1, def: 1, label: (v) => AMPH[v] },
   },
+  'Excited': { factory: excited, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => EXC[v] } },
+  'Sad': { factory: sad, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => SAD[v] } },
+  'Depressed': { factory: depressed, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => DEP[v] } },
+  'Relieved': { factory: relieved, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => REL[v] } },
+  'Aroused': { factory: aroused, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => ARO[v] } },
   'SSRI withdrawal': { factory: ssriWithdrawal, param: { min: 0, max: 2, step: 1, def: 0, label: (v) => TAPER[v] } },
   'Schizophrenia': { factory: schizophrenia, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => SZ[v] } },
   'ADHD': { factory: adhd, param: { min: 0, max: 2, step: 1, def: 1, label: (v) => ADHD_P[v] } },
