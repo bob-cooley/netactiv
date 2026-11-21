@@ -52,7 +52,7 @@ whenReady((api) => {
 
   const MOODS = ['Excited', 'Sad', 'Depressed', 'Relieved', 'Aroused', 'Video game (dopamine hits)'];
   const ALTERED = ['Drunk (alcohol)', 'High (THC)', 'Rolling (MDMA)', 'Amphetamines', 'Coffee (caffeine)'];
-  const NEURO = ['Autism', 'Intellectual disability (ID)', 'Bipolar', 'Mania', 'Schizophrenia', 'ADHD', 'Dyslexia', 'Dyspraxia', "Tourette's"];
+  const NEURO = ['Autism', 'ADHD', 'Bipolar', 'Mania', 'Schizophrenia', "Tourette's"];
 
   // ── Gear ──────────────────────────────────────────────────────────────────
   const gear = el('button', { class: 'ns-gear', type: 'button', 'aria-label': 'Settings', 'aria-expanded': 'false' });
@@ -70,7 +70,7 @@ whenReady((api) => {
       <button class="ns-close" type="button" aria-label="Close" style="margin-left:auto">&times;</button>
     </header>
     <div class="ns-info-body">
-      <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in established, non-controversial science. That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
+      <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in published scientific research. Much of it is well established; some, particularly for moods and neurodivergence, reflects group-level findings that are still being studied, and individual experience varies widely. Combinations of states are theoretical. That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
       <p>It is born of scientific study, but the tool is more sci-“inspired” than absolute.</p>
     </div>`;
   document.body.appendChild(info);
@@ -305,7 +305,7 @@ function injectStyles() {
   .ns-info-btn { right: 72px; }
   .ns-info-ring, .ns-info-stem { fill: none; stroke: var(--ns-icon); stroke-width: 2.4; stroke-linecap: round; }
   .ns-info-dot { fill: var(--ns-icon); }
-  .ns-info { width: min(540px, calc(100vw - 24px)); }
+  .ns-panel.ns-info { width: min(600px, calc(100vw - 24px)); }
   .ns-info-body p { font-size: 15px; line-height: 1.65; letter-spacing: .02em; color: var(--ns-text); margin: 0 0 12px; }
   .ns-info-body p:last-child { margin-bottom: 2px; }
   .ns-info-body i { color: var(--ns-teal); font-style: italic; }
