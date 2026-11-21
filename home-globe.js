@@ -368,7 +368,36 @@
     velY = al * ((e.touches[0].clientX - lastPX) * dragSens / dt) + (1-al) * velY;
     lastPX = e.touches[0].clientX; lastPY = e.touches[0].clientY; lastPT = now;
   }, { passive: false });
-  canvas.addEventListener('touchend', () => { isDrag = false; });
+  canvas.addEventListener('touchend', e => {
+    isDrag = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - lastPX, dy = t.clientY - lastPY;
+    const elapsed = performance.now() - lastPT;
+    if (elapsed < 300 && Math.sqrt(dx*dx + dy*dy) < 10) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = t.clientX - rect.left, my = t.clientY - rect.top;
+      if ((mx - cx)*(mx - cx) + (my - cy)*(my - cy) <= R * R) {
+        clearTimeout(revertTimer);
+        currentMode = 'overcaffed';
+        joltEnd = 0; lastJolt = 0;
+        velY = AUTO_SPIN_BASE * MODES.overcaffed.speedMult;
+        const gt = document.getElementById('glitch-text');
+        const ov = document.getElementById('glitch-overlay');
+        if (gt) gt.classList.add('active');
+        if (ov) ov.classList.add('active');
+        document.body.classList.add('overcaffed');
+        startLetterGlitch();
+        revertTimer = setTimeout(() => {
+          currentMode = 'chill';
+          velY = AUTO_SPIN_BASE * MODES.chill.speedMult;
+          if (gt) gt.classList.remove('active');
+          if (ov) ov.classList.remove('active');
+          document.body.classList.remove('overcaffed');
+          stopLetterGlitch();
+        }, 3000);
+      }
+    }
+  });
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   rotM = mrz(TILT);
