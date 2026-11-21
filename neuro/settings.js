@@ -71,7 +71,9 @@ whenReady((api) => {
       <button class="ns-close" type="button" aria-label="Close" style="margin-left:auto">&times;</button>
     </header>
     <div class="ns-info-body">
-      <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in published scientific research. Much of it is well established; some, particularly for moods and neurodivergence, reflects group-level findings that are still being studied, and individual experience varies widely. Combinations of states are theoretical. That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
+      <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in published scientific research.</p>
+      <p>Much of it is well established; some, particularly for moods and neurodivergence, reflects group-level findings that are still being studied, and individual experience varies widely.<br>Combinations of states are theoretical.</p>
+      <p>That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
       <p>It is born of scientific study, but the tool is more sci-“inspired” than absolute.</p>
       <p class="ns-cite-link"><a href="#" data-act="cites" aria-expanded="false">citations <span aria-hidden="true">&rarr;</span></a></p>
     </div>`;
