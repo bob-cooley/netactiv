@@ -358,34 +358,81 @@ const PROFILES = {
 export const isCalibrated = (name) => !!PROFILES[name];
 export const paramSpec = (name) => (PROFILES[name] ? PROFILES[name].param : null);
 
+// ── Layering ────────────────────────────────────────────────────────────────
+// Neurodivergence is the standing base layer; mood and altered state sit on top.
+// Each active profile writes into its own layer; layers are combined every frame:
+// strength-type modifiers multiply, overlay-type modifiers add (with caps), and
+// pulse colours blend by how strongly each layer tints its pulses.
+// NOTE: combinations of two or more states are a theoretical extrapolation; the
+// individual states are grounded in findings, their interactions are not studied.
+const SLOTS = ['neuro', 'mood', 'altered'];
+const MULT = ['gain', 'sat', 'speed', 'spont', 'spark', 'transmit', 'timeScale', 'blur'];
+const ADD = { fov: [-8, 8], shake: [0, 0.12], sway: [0, 2], ghost: [0, 0.8], trails: [0, 0.94],
+  vignette: [0, 1.2], focusWander: [0, 2], pulseMix: [0, 1] };
+const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
+const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const rgbToHex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+
+function combine(layers) {
+  const out = {};
+  for (const k of MULT) out[k] = layers.reduce((acc, L) => acc * (L.mods[k] != null ? L.mods[k] : 1), 1);
+  for (const k of Object.keys(ADD)) out[k] = clamp(layers.reduce((acc, L) => acc + (L.mods[k] || 0), 0), ADD[k]);
+  out.tint = [0, 1, 2].map((i) => layers.reduce((acc, L) => acc * (L.mods.tint ? L.mods.tint[i] : 1), 1));
+  // colour: weighted by each layer's own pulse tint strength
+  let w = 0;
+  const col = [0, 0, 0];
+  for (const L of layers) {
+    const m = L.mods.pulseMix || 0;
+    if (m <= 0 || !L.color) continue;
+    const c = hexToRgb(L.color);
+    for (let i = 0; i < 3; i++) col[i] += c[i] * m;
+    w += m;
+  }
+  return { mods: out, color: w > 0 ? rgbToHex(col.map((v) => v / w)) : null };
+}
+
 export function initStates(api) {
-  let active = null, activeName = '';
   const values = {}; // remembered parameter per state for this visit
   for (const [n, p] of Object.entries(PROFILES)) values[n] = p.param.def;
+  const slots = {};  // slot -> { name, profile, mods, color }
 
-  function stop() {
-    active = null;
-    activeName = '';
-    api.resetMods();
+  // per-layer proxy: profiles write to their own layer, everything else passes through
+  function layerApi(layer) {
+    return {
+      ...api,
+      setMods: (o) => { Object.assign(layer.mods, o); },
+      setModColor: (hex) => { layer.color = hex; },
+      resetMods: () => { layer.mods = {}; },
+    };
   }
 
   window.addEventListener('neuro:state', (e) => {
-    const { mood, altered, neuro } = e.detail;
-    // one profile at a time for now: mood takes priority, then altered state
-    const name = [mood, altered, neuro].find((n) => n && PROFILES[n]) || '';
-    if (name === activeName) return;
-    stop();
-    if (name) {
-      active = PROFILES[name].factory(api);
-      activeName = name;
-      active.setParam(values[name]);
-      active.start();
+    const picks = e.detail;
+    for (const slot of SLOTS) {
+      const name = picks[slot] && PROFILES[picks[slot]] ? picks[slot] : '';
+      const cur = slots[slot];
+      if ((cur ? cur.name : '') === name) continue;
+      delete slots[slot];
+      if (name) {
+        const layer = { name, mods: {}, color: null };
+        layer.profile = PROFILES[name].factory(layerApi(layer));
+        layer.profile.setParam(values[name]);
+        layer.profile.start();
+        slots[slot] = layer;
+      }
     }
+    if (!Object.keys(slots).length) api.resetMods();
   });
 
   function loop() {
     requestAnimationFrame(loop);
-    if (active) active.frame(performance.now() / 1000);
+    const layers = SLOTS.map((s) => slots[s]).filter(Boolean);
+    if (!layers.length) return;
+    const now = performance.now() / 1000;
+    for (const L of layers) L.profile.frame(now);
+    const { mods, color } = combine(layers);
+    if (color) api.setModColor(color);
+    api.setMods(mods);
   }
   requestAnimationFrame(loop);
 
@@ -394,7 +441,7 @@ export function initStates(api) {
     setParam(name, v) {
       if (!PROFILES[name]) return;
       values[name] = v;
-      if (name === activeName && active) active.setParam(v);
+      for (const L of Object.values(slots)) if (L.name === name) L.profile.setParam(v);
     },
   };
 }
