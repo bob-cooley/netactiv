@@ -5,6 +5,7 @@
 
 import { initCursors } from './cursors.js?v=3';
 import { initStates, isCalibrated, paramSpec } from './states.js?v=9';
+import { CITATIONS } from './citations.js?v=1';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -72,8 +73,25 @@ whenReady((api) => {
     <div class="ns-info-body">
       <p>Though this neuro-visualization is interpreted cinematically, the construction, actions, patterns and triggers are all based in published scientific research. Much of it is well established; some, particularly for moods and neurodivergence, reflects group-level findings that are still being studied, and individual experience varies widely. Combinations of states are theoretical. That said, it is a <i>simulation</i>, intended to give some insight into brain activity in different states.</p>
       <p>It is born of scientific study, but the tool is more sci-“inspired” than absolute.</p>
+      <p class="ns-cite-link"><a href="#" data-act="cites" aria-expanded="false">citations <span aria-hidden="true">&rarr;</span></a></p>
     </div>`;
   document.body.appendChild(info);
+
+  // citations: slides in beside the about panel, unrolling downward
+  const cites = el('div', { class: 'ns-panel ns-cites', role: 'region', 'aria-label': 'Citations', hidden: '' });
+  cites.innerHTML = `
+    <header class="ns-head">
+      <div class="ns-title">neuro <b>/</b> citations</div>
+      <button class="ns-close" type="button" aria-label="Close citations" style="margin-left:auto">&times;</button>
+    </header>
+    <div class="ns-cites-body">
+      ${CITATIONS.map((g) => `
+        <section>
+          <h4>${g.group}</h4>
+          <ul>${g.items.map((c) => `<li><a href="${c.url}" target="_blank" rel="noopener">${c.text}</a></li>`).join('')}</ul>
+        </section>`).join('')}
+    </div>`;
+  document.body.appendChild(cites);
 
   // ── Panel ─────────────────────────────────────────────────────────────────
   const panel = el('div', { class: 'ns-panel', role: 'dialog', 'aria-label': 'Neuro settings', hidden: '' });
@@ -223,10 +241,31 @@ whenReady((api) => {
     panel.querySelector('[data-links]').textContent = String(st.junctions);
   }
   gear.addEventListener('click', () => { showInfo(false); open(panel.hidden); });
+  const citeLink = info.querySelector('[data-act="cites"]');
+  let citeT = 0;
+  function showCites(on) {
+    clearTimeout(citeT);
+    citeLink.setAttribute('aria-expanded', String(on));
+    info.classList.toggle('shifted', on);
+    if (on) {
+      // top-align with the about panel (it only moves sideways)
+      cites.style.setProperty('--top', `${Math.max(16, info.getBoundingClientRect().top)}px`);
+      cites.hidden = false;
+      cites.querySelector('.ns-cites-body').scrollTop = 0;
+      void cites.offsetWidth;          // let the closed state paint, then unroll
+      cites.classList.add('open');
+    } else {
+      cites.classList.remove('open');
+      citeT = setTimeout(() => { cites.hidden = true; }, 600);
+    }
+  }
+  citeLink.addEventListener('click', (e) => { e.preventDefault(); showCites(!cites.classList.contains('open')); });
+  cites.querySelector('.ns-close').addEventListener('click', () => showCites(false));
   function showInfo(on) {
     info.hidden = !on;
     infoBtn.setAttribute('aria-expanded', String(on));
     infoBtn.classList.toggle('on', on);
+    if (!on) { showCites(false); cites.hidden = true; info.classList.remove('shifted'); }
   }
   infoBtn.addEventListener('click', () => { const on = info.hidden; if (on) open(false); showInfo(on); });
   info.querySelector('.ns-close').addEventListener('click', () => showInfo(false));
@@ -309,6 +348,39 @@ function injectStyles() {
   .ns-info-body p { font-size: 15px; line-height: 1.65; letter-spacing: .02em; color: var(--ns-text); margin: 0 0 12px; }
   .ns-info-body p:last-child { margin-bottom: 2px; }
   .ns-info-body i { color: var(--ns-teal); font-style: italic; }
+  .ns-cite-link { margin-top: 4px !important; }
+  .ns-cite-link a { font-family: var(--ns-ui); font-size: 13px; letter-spacing: .14em; text-transform: lowercase; color: var(--ns-teal); text-decoration: none; border-bottom: 1px solid rgba(90,174,187,0.4); padding-bottom: 1px; }
+  .ns-cite-link a:hover, .ns-cite-link a[aria-expanded="true"] { color: #fff; border-color: #fff; }
+
+  /* about + citations side by side: about slides left, citations unroll on the right */
+  .ns-panel.ns-info { --iw: min(600px, 47vw); --cw: min(520px, 47vw); --gap: 18px; width: var(--iw); transition: transform .55s cubic-bezier(.2,.7,.2,1); }
+  .ns-panel.ns-info.shifted { transform: translate(calc(-50% - (var(--cw) + var(--gap)) / 2), -50%); }
+  .ns-panel.ns-cites {
+    --iw: min(600px, 47vw); --cw: min(520px, 47vw); --gap: 18px;
+    /* the pair (about + gap + citations) is centred; citations start right of about */
+    width: var(--cw); left: calc(50% + (var(--iw) + var(--gap) - var(--cw)) / 2);
+    top: var(--top, 15vh); transform: none;
+    max-height: min(calc(100vh - var(--top, 15vh) - 24px), 640px); display: flex; flex-direction: column; overflow: hidden;
+    clip-path: inset(0 0 100% 0); opacity: 0;
+    transition: clip-path .6s cubic-bezier(.2,.7,.2,1) .18s, opacity .25s ease .18s;
+  }
+  .ns-panel.ns-cites.open { clip-path: inset(0 0 0 0); opacity: 1; }
+  .ns-cites-body { overflow-y: auto; scrollbar-width: none; padding-right: 4px; }
+  .ns-cites-body::-webkit-scrollbar { display: none; }
+  .ns-cites-body h4 { font-weight: 400; font-size: 12px; letter-spacing: .22em; text-transform: lowercase; color: var(--ns-mag); margin: 12px 0 6px; }
+  .ns-cites-body section:first-child h4 { margin-top: 0; }
+  .ns-cites-body ul { list-style: none; margin: 0; padding: 0; }
+  .ns-cites-body li { margin: 0 0 7px; font-size: 13px; line-height: 1.45; }
+  .ns-cites-body a { color: var(--ns-text); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .ns-cites-body a:hover { color: var(--ns-teal); border-color: var(--ns-teal); }
+  .ns-panel.ns-cites.open .ns-cites-body section { animation: ns-drop .5s ease both; }
+  ${Array.from({ length: 14 }, (_, i) => `.ns-panel.ns-cites.open .ns-cites-body section:nth-child(${i + 1}) { animation-delay: ${0.25 + i * 0.05}s; }`).join('\n  ')}
+  @keyframes ns-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 760px) {
+    .ns-panel.ns-info.shifted { transform: translate(-50%, -50%); opacity: 0; pointer-events: none; }
+    .ns-panel.ns-info { --iw: calc(100vw - 24px); transition: transform .55s, opacity .3s; }
+    .ns-panel.ns-cites { --cw: calc(100vw - 24px); left: 50%; transform: translateX(-50%); width: var(--cw); }
+  }
   .ns-gear:hover, .ns-gear.on { border-color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.08); }
 
   .ns-panel {
