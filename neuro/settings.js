@@ -4,8 +4,8 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=4';
-import { initStates, isCalibrated, paramSpec } from './states.js?v=10';
-import { CITATIONS } from './citations.js?v=2';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=12';
+import { CITATIONS } from './citations.js?v=3';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
