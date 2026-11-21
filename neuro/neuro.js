@@ -118,7 +118,7 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 2
 
 // State modifiers layered on top of the user's settings. All neutral by default,
 // so pages that never touch them (the homepage) render exactly as designed.
-const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0 };
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0 };
 const USER = { gain: 1, sat: 1 };
 const BASE_PULSE = new THREE.Color('#7ff3ff');
 const MOD_PULSE = new THREE.Color('#ffc84a');
@@ -874,7 +874,7 @@ function fireNeuron(N, t) {
   N.slot = (N.slot + 1) & 3;
   fireTex.needsUpdate = true;
   for (const j of N.out) {
-    const arrive = t + j.along / pulseSpeed();
+    const arrive = t + j.along / pulseSpeed() + (MOD.jitter > 0 ? Math.random() * MOD.jitter : 0);
     schedule({ t: arrive, kind: 'spark', pos: j.pos });
     if (Math.random() < transmitP() * MOD.transmit) {
       schedule({ t: arrive + CFG.synapticDelay + j.gap / pulseSpeed(), kind: 'fire', id: j.target });
@@ -1206,8 +1206,15 @@ function enableInteraction() {
   canvas.addEventListener('pointerleave', () => { IX.lastMove = -1e9; IX.hover = null; canvas.classList.remove('nx-over'); });
 }
 
+let focusOverride = null; // { depth, until } forced focus jump (state layer)
 function updateFocus(dt) {
   camera.getWorldDirection(fwd);
+  if (focusOverride && time < focusOverride.until) {
+    focus += (focusOverride.depth - focus) * Math.min(dt * 3.0, 1);   // attention snaps, then holds
+    dofPass.uniforms.uFocus.value = focus;
+    return;
+  }
+  focusOverride = null;
 
   // 1. a tapped neuron holds focus for a few seconds
   if (IX.lock && (time > IX.lock.until || !neurons.has(IX.lock.rec.id))) IX.lock = null;
@@ -1408,7 +1415,7 @@ window.__neuro = {
   setGain: (v) => { USER.gain = Math.max(0, v); },
   // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
   setMods: (o) => { Object.assign(MOD, o); },
-  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0 }); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0 }); },
   setModColor: (hex) => { MOD_PULSE.set(hex); },
   getMods: () => ({ ...MOD }),
   burst: (n, spread = 0.03) => {
@@ -1418,6 +1425,40 @@ window.__neuro = {
       schedule({ t: time + i * spread * Math.random() * 2, kind: 'fire', id });
     });
     return ids.length;
+  },
+  // salience without cause: neurons flare (nothing propagates) and sparks appear on the arbor
+  phantom: ({ flashes = 1, sparks = 3 } = {}) => {
+    const all = [...neurons.values()].filter((N) => N.centre.distanceTo(camera.position) < 45);
+    if (!all.length) return 0;
+    for (let i = 0; i < flashes; i++) {
+      const N = all[Math.floor(Math.random() * all.length)];
+      N.lastFire = time;                         // soma flares; refractory, but no pulse is sent
+    }
+    for (let i = 0; i < sparks; i++) {
+      const N = all[Math.floor(Math.random() * all.length)];
+      const a = N.arbor;
+      if (!a.length) continue;
+      const k = Math.floor(Math.random() * (a.length / 4)) * 4;
+      emitSpark(new THREE.Vector3(a[k], a[k + 1], a[k + 2]), time);
+    }
+    return all.length;
+  },
+  // force focus to a depth for a while (attention lapses / snaps)
+  focusTo: (depth, seconds) => { focusOverride = { depth: Math.max(2, depth), until: time + seconds }; },
+  // burst among neurons toward the edge of view (activity arising away from the task)
+  burstPeriphery: (n, spread = 0.04) => {
+    camera.getWorldDirection(fwd);
+    const cand = [];
+    for (const N of neurons.values()) {
+      toSoma.subVectors(N.centre, camera.position);
+      const d = toSoma.dot(fwd);
+      if (d < 4 || d > 40) continue;
+      const lateral = toSoma.addScaledVector(fwd, -d).length() / d;
+      if (lateral > 0.35) cand.push(N);
+    }
+    cand.sort(() => Math.random() - 0.5);
+    cand.slice(0, n).forEach((N, i) => { N.lastFire = -1000; schedule({ t: time + i * spread, kind: 'fire', id: N.id }); });
+    return Math.min(n, cand.length);
   },
   // ids of the n neurons nearest the centre of view (for loops and targeted firing)
   cluster: (n) => clusterIds(n),
