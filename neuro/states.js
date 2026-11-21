@@ -370,9 +370,9 @@ export function initStates(api) {
   }
 
   window.addEventListener('neuro:state', (e) => {
-    const { mood, altered } = e.detail;
+    const { mood, altered, neuro } = e.detail;
     // one profile at a time for now: mood takes priority, then altered state
-    const name = [mood, altered].find((n) => n && PROFILES[n]) || '';
+    const name = [mood, altered, neuro].find((n) => n && PROFILES[n]) || '';
     if (name === activeName) return;
     stop();
     if (name) {

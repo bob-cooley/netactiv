@@ -4,7 +4,7 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=3';
-import { initStates, isCalibrated, paramSpec } from './states.js?v=6';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=7';
 
 function whenReady(cb) {
   if (window.__neuro && window.__neuro.setStructure) return cb(window.__neuro);
@@ -52,6 +52,7 @@ whenReady((api) => {
 
   const MOODS = ['Excited', 'Sad', 'Depressed', 'Relieved', 'Aroused', 'Video game (dopamine hits)'];
   const ALTERED = ['Drunk (alcohol)', 'High (THC)', 'Rolling (MDMA)', 'Amphetamines', 'Coffee (caffeine)'];
+  const NEURO = ['Autism', 'Intellectual disability (ID)', 'Bipolar', 'Mania', 'Schizophrenia', 'ADHD', 'Dyslexia', 'Dyspraxia', "Tourette's"];
 
   // ── Gear ──────────────────────────────────────────────────────────────────
   const gear = el('button', { class: 'ns-gear', type: 'button', 'aria-label': 'Settings', 'aria-expanded': 'false' });
@@ -106,6 +107,10 @@ whenReady((api) => {
       <div class="ns-sel"><label class="ns-label" for="ns-altered">altered state</label>
         <select id="ns-altered" data-state="altered"><option value="">baseline</option>${ALTERED.map((m) => `<option>${m}</option>`).join('')}</select>
         <div class="ns-sub"><input type="range" class="ns-range" data-param="altered" aria-label="Altered state parameter"><output class="ns-subval">-</output></div>
+      </div>
+      <div class="ns-sel"><label class="ns-label" for="ns-neuro">neurodivergence</label>
+        <select id="ns-neuro" data-state="neuro"><option value="">baseline</option>${NEURO.map((m) => `<option>${m}</option>`).join('')}</select>
+        <div class="ns-sub"><input type="range" class="ns-range" data-param="neuro" aria-label="Neurodivergence parameter"><output class="ns-subval">-</output></div>
       </div>
       <div class="ns-sel"><label class="ns-label" for="ns-cursor">cursor</label>
         <select id="ns-cursor" data-cursor></select>
@@ -180,18 +185,20 @@ whenReady((api) => {
   }
   syncParam('mood');
   syncParam('altered');
+  syncParam('neuro');
   panel.querySelectorAll('[data-state]').forEach((sel) => sel.addEventListener('change', () => {
     syncParam(sel.dataset.state);
     const mood = panel.querySelector('[data-state="mood"]').value;
     const altered = panel.querySelector('[data-state="altered"]').value;
-    const live = [mood, altered].filter((n) => n && isCalibrated(n));
-    const pending = [mood, altered].filter((n) => n && !isCalibrated(n));
+    const neuro = panel.querySelector('[data-state="neuro"]').value;
+    const live = [mood, altered, neuro].filter((n) => n && isCalibrated(n));
+    const pending = [mood, altered, neuro].filter((n) => n && !isCalibrated(n));
     const parts = [];
     if (live.length) parts.push(`${live[0].toLowerCase()}: active`);
     if (pending.length) parts.push(`${pending.join(' + ').toLowerCase()}: not yet calibrated`);
     stateMsg.textContent = parts.length ? parts.join(' / ') : 'baseline';
     stateMsg.classList.toggle('live', live.length > 0);
-    window.dispatchEvent(new CustomEvent('neuro:state', { detail: { mood, altered } }));
+    window.dispatchEvent(new CustomEvent('neuro:state', { detail: { mood, altered, neuro } }));
   }));
 
   // ── Reset / open / close ──────────────────────────────────────────────────
@@ -301,7 +308,7 @@ function injectStyles() {
 
   .ns-panel {
     position: fixed; z-index: 35; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: min(720px, calc(100vw - 24px)); max-height: calc(100vh - 80px);
+    width: min(920px, calc(100vw - 24px)); max-height: calc(100vh - 80px);
     overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
     padding: 18px 22px 14px;
     background: rgba(7,7,7,0.15);           /* 85% transparent */
