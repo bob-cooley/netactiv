@@ -4,7 +4,7 @@
 // The earlier retro-futuristic version is archived in settings-retro.js.
 
 import { initCursors } from './cursors.js?v=4';
-import { initStates, isCalibrated, paramSpec } from './states.js?v=13';
+import { initStates, isCalibrated, paramSpec } from './states.js?v=14';
 import { CITATIONS } from './citations.js?v=3';
 
 function whenReady(cb) {
