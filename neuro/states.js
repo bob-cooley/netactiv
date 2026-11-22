@@ -244,7 +244,8 @@ function high(api) {
 // Grounding: MDMA reverses the serotonin transporter, releasing large amounts of
 // serotonin, with additional dopamine and noradrenaline release and a rise in
 // oxytocin. Reported effects are euphoria, emotional warmth and closeness, and
-// heightened sensation; jaw clenching (bruxism) is a common physical effect.
+// heightened sensation; jaw clenching (bruxism) is a common physical effect
+// (not rendered: a camera tremor read as screen wobble rather than clenching).
 // Rendered as: broad synchronised waves rolling through the network, a slow
 // warm breathing rhythm, warm colour, richer saturation and soft trails.
 const MDMA = ['Light', 'Typical', 'Strong'];
@@ -277,7 +278,6 @@ function rolling(api) {
         trails: 0.45 * k,
         spark: 1 + 0.5 * k,
         pulseMix: 0.8 * k,
-        shake: 0.006 * k,                                            // jaw clench, faintly
         tint: [1 + 0.06 * k, 1 - 0.01 * k, 1 - 0.03 * k],
       }, on));
     },
