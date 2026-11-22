@@ -275,7 +275,7 @@ function rolling(api) {
         spont: 1 + 0.4 * k,
         transmit: 1 + 0.2 * k,
         speed: 1 + 0.1 * k,
-        trails: 0.45 * k,
+        trails: 0.2 * k,                                             // soft, kept light: heavier trails read as wobble
         spark: 1 + 0.5 * k,
         pulseMix: 0.8 * k,
         tint: [1 + 0.06 * k, 1 - 0.01 * k, 1 - 0.03 * k],
