@@ -137,7 +137,7 @@ function coffee(api) {
 // ── shared helpers for dose-style profiles ──────────────────────────────────
 // Blend a set of modifier targets from neutral by an amount 0..1 (onset ramp).
 const NEUTRAL = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0,
-  timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, vignette: 0, focusWander: 0, jitter: 0 };
+  timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, vignette: 0, focusWander: 0, jitter: 0, haloFlash: 1 };
 function blend(target, amt) {
   const out = {};
   for (const k of Object.keys(NEUTRAL)) {
@@ -246,8 +246,8 @@ function high(api) {
 // oxytocin. Reported effects are euphoria, emotional warmth and closeness, and
 // heightened sensation; jaw clenching (bruxism) is a common physical effect
 // (not rendered: a camera tremor read as screen wobble rather than clenching).
-// Rendered as: broad synchronised waves rolling through the network, a slow
-// warm breathing rhythm, warm colour and richer saturation. (Trails were tried
+// Rendered as: broad, unhurried synchronised waves, emotional colour cycling and
+// richer saturation; no speed-up (MDMA is not experienced as speedy). (Trails were tried
 // and removed: their build-up read as wobble.)
 const MDMA = ['Light', 'Typical', 'Strong'];
 // Emotional cycling: every 10-30 s (random) the base colour moves to roughly the
@@ -285,7 +285,7 @@ function rolling(api) {
       const k = 0.55 + (lvl.step(dt) / 2) * 0.45;   // light 0.55, typical ~0.78, strong 1
       const on = ease((now - t0) / ONSET);
       if (now >= nextWave && on > 0.3) {
-        api.wave({ speed: 12, reach: 38 + 12 * k, max: Math.round(28 + 22 * k), jitter: 0.25 });
+        api.wave({ speed: 9, reach: 38 + 12 * k, max: Math.round(24 + 18 * k), jitter: 0.3 });
         nextWave = now + lerp(7.5, 3.5, k) * (0.8 + Math.random() * 0.4);
       }
       // colour cycle
@@ -303,13 +303,14 @@ function rolling(api) {
       const mean = (col[0] + col[1] + col[2]) / 3;
       const tint = col.map((v) => 1 + 0.16 * k * (v - mean));    // gentle scene-wide cast
 
-      const breath = 0.5 + 0.5 * Math.sin(now * Math.PI * 2 * 0.22);
+      // no brightness 'breathing' and no speed-up: both read as wobble (the
+      // glow magnified the brightness swell); colour cycling carries the emotion
       api.setMods(blend({
-        gain: (1 + 0.08 * k) * (1 + 0.08 * k * breath),
+        gain: 1 + 0.06 * k,
+        haloFlash: 0.3,                                   // calm halos as waves pass
         sat: 1 + 0.35 * k,
-        spont: 1 + 0.4 * k,
-        transmit: 1 + 0.2 * k,
-        speed: 1 + 0.1 * k,
+        spont: 1 + 0.25 * k,
+        transmit: 1 + 0.12 * k,
         spark: 1 + 0.5 * k,
         pulseMix: 0.8 * k,
         tint,
@@ -1017,7 +1018,7 @@ export const paramSpec = (name) => (PROFILES[name] ? PROFILES[name].param : null
 // NOTE: combinations of two or more states are a theoretical extrapolation; the
 // individual states are grounded in findings, their interactions are not studied.
 const SLOTS = ['neuro', 'mood', 'altered'];
-const MULT = ['gain', 'sat', 'speed', 'spont', 'spark', 'transmit', 'timeScale', 'blur'];
+const MULT = ['gain', 'sat', 'speed', 'spont', 'spark', 'transmit', 'timeScale', 'blur', 'haloFlash'];
 const ADD = { fov: [-8, 8], shake: [0, 0.12], sway: [0, 2], ghost: [0, 0.8], trails: [0, 0.94],
   vignette: [0, 1.2], focusWander: [0, 2], pulseMix: [0, 1], jitter: [0, 0.8] };
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
