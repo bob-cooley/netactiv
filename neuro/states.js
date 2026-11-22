@@ -249,14 +249,33 @@ function high(api) {
 // Rendered as: broad synchronised waves rolling through the network, a slow
 // warm breathing rhythm, warm colour, richer saturation and soft trails.
 const MDMA = ['Light', 'Typical', 'Strong'];
+// Emotional cycling: every 10-30 s (random) the base colour moves to roughly the
+// opposite side of the colour wheel, blending directly over a random 1.5-4 s.
+// The pink/magenta band is avoided.
+function hslToRgb(h, s, l) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)];
+}
+const toHex = (c) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+function oppositeHue(h) {
+  let n = (h + 180 + (Math.random() * 60 - 30) + 360) % 360;
+  if (n >= 285 && n <= 345) n = Math.random() < 0.5 ? 265 : 15;   // steer clear of pink/magenta
+  return n;
+}
+
 function rolling(api) {
   const ONSET = 30;          // compressed from roughly 30-60 minutes
   const lvl = eased(1, 0.5);
   let t0 = 0, last = 0, nextWave = 0;
+  let hueFrom = 14, hueTo = 14, shiftAt = 0, shiftLen = 1, nextShift = 0;   // starts warm coral
   return {
     start() {
       t0 = last = performance.now() / 1000;
       nextWave = t0 + 8;
+      nextShift = t0 + 10 + Math.random() * 20;
       api.setModColor('#ff9070'); // warm coral pulses
     },
     setParam(v) { const L = Math.max(0, Math.min(2, Math.round(v))); if (!t0) lvl.snap(L); else lvl.set(L); },
@@ -268,6 +287,21 @@ function rolling(api) {
         api.wave({ speed: 12, reach: 38 + 12 * k, max: Math.round(28 + 22 * k), jitter: 0.25 });
         nextWave = now + lerp(7.5, 3.5, k) * (0.8 + Math.random() * 0.4);
       }
+      // colour cycle
+      if (now >= nextShift) {
+        hueFrom = hueTo;
+        hueTo = oppositeHue(hueTo);
+        shiftAt = now;
+        shiftLen = 1.5 + Math.random() * 2.5;
+        nextShift = now + 10 + Math.random() * 20;
+      }
+      const u = ease(Math.min(1, (now - shiftAt) / shiftLen));
+      const a = hslToRgb(hueFrom, 0.9, 0.7), b = hslToRgb(hueTo, 0.9, 0.7);
+      const col = a.map((v, i) => lerp(v, b[i], u));             // direct blend, no rainbow sweep
+      api.setModColor(toHex(col));
+      const mean = (col[0] + col[1] + col[2]) / 3;
+      const tint = col.map((v) => 1 + 0.16 * k * (v - mean));    // gentle scene-wide cast
+
       const breath = 0.5 + 0.5 * Math.sin(now * Math.PI * 2 * 0.22);
       api.setMods(blend({
         gain: (1 + 0.08 * k) * (1 + 0.08 * k * breath),
@@ -278,7 +312,7 @@ function rolling(api) {
         trails: 0.2 * k,                                             // soft, kept light: heavier trails read as wobble
         spark: 1 + 0.5 * k,
         pulseMix: 0.8 * k,
-        tint: [1 + 0.06 * k, 1 - 0.01 * k, 1 - 0.03 * k],
+        tint,
       }, on));
     },
   };
