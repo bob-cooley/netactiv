@@ -247,7 +247,8 @@ function high(api) {
 // heightened sensation; jaw clenching (bruxism) is a common physical effect
 // (not rendered: a camera tremor read as screen wobble rather than clenching).
 // Rendered as: broad synchronised waves rolling through the network, a slow
-// warm breathing rhythm, warm colour, richer saturation and soft trails.
+// warm breathing rhythm, warm colour and richer saturation. (Trails were tried
+// and removed: their build-up read as wobble.)
 const MDMA = ['Light', 'Typical', 'Strong'];
 // Emotional cycling: every 10-30 s (random) the base colour moves to roughly the
 // opposite side of the colour wheel, blending directly over a random 1.5-4 s.
@@ -309,7 +310,6 @@ function rolling(api) {
         spont: 1 + 0.4 * k,
         transmit: 1 + 0.2 * k,
         speed: 1 + 0.1 * k,
-        trails: 0.2 * k,                                             // soft, kept light: heavier trails read as wobble
         spark: 1 + 0.5 * k,
         pulseMix: 0.8 * k,
         tint,
