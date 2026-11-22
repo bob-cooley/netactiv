@@ -118,7 +118,7 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 2
 
 // State modifiers layered on top of the user's settings. All neutral by default,
 // so pages that never touch them (the homepage) render exactly as designed.
-const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0 };
+const MOD = { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0, haloFlash: 1 };
 const USER = { gain: 1, sat: 1 };
 const BASE_PULSE = new THREE.Color('#7ff3ff');
 const MOD_PULSE = new THREE.Color('#ffc84a');
@@ -1329,8 +1329,8 @@ function frame(now) {
       s.mesh.material.uniforms.uGlow.value = breathe;
       s.nucleus.material.uniforms.uFlash.value = flash;
       s.nucleus.material.uniforms.uGlow.value = breathe;
-      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.25));
-      s.halo.material.opacity = 0.35 + flash * 0.25;
+      s.halo.scale.setScalar(s.baseHalo * (breathe + flash * 0.25 * MOD.haloFlash));   // haloFlash: state layer
+      s.halo.material.opacity = 0.35 + flash * 0.25 * MOD.haloFlash;
     }
   }
 
@@ -1415,7 +1415,7 @@ window.__neuro = {
   setGain: (v) => { USER.gain = Math.max(0, v); },
   // state layer: modifiers multiply the user's settings; burst fires a cluster near frame centre
   setMods: (o) => { Object.assign(MOD, o); },
-  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0 }); },
+  resetMods: () => { Object.assign(MOD, { gain: 1, sat: 1, speed: 1, spont: 1, spark: 1, fov: 0, pulseMix: 0, transmit: 1, shake: 0, timeScale: 1, sway: 0, blur: 1, ghost: 0, trails: 0, tint: [1, 1, 1], vignette: 0, focusWander: 0, jitter: 0, haloFlash: 1 }); },
   setModColor: (hex) => { MOD_PULSE.set(hex); },
   getMods: () => ({ ...MOD }),
   burst: (n, spread = 0.03) => {
@@ -1491,6 +1491,7 @@ window.__neuro = {
   getStructure: () => ({ ...S }),
   isMobile: IS_MOBILE,
   getFps: () => fps,
+  getCam: () => ({ p: camera.position.toArray(), q: camera.quaternion.toArray(), fov: camera.fov, focus }), // diagnostics
   enableInteraction,
   setTravel: (z) => { travel = z; },
   renderOnce: () => composer.render(),
