@@ -4,71 +4,701 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title>nyc crime — netActiv</title>
+  <title>nyc homicide — netActiv</title>
+  <link rel="preconnect" href="https://use.typekit.net">
+  <link rel="stylesheet" href="https://use.typekit.net/huu3rip.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --navy:   #305D81;
+      --teal:   #3B8290;
+      --sage:   #A5AB76;
+      --cream:  #FDE5B4;
+      --amber:  #F3A627;
+      --orange: #E46C34;
+      --purple: #86669A;
+      --paper:  #FFECD4;
+      --navy-deep: #244a69;
+      --font: "century-gothic-pro", "century-gothic", "Century Gothic Pro", "Century Gothic", Questrial, "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --mono: "Space Mono", ui-monospace, Menlo, monospace;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html, body { height: 100%; }
+
     body {
-      background: #02040d;
-      color: rgba(255, 255, 255, 0.80);
-      min-height: 100vh;
-      font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: var(--teal);
+      color: var(--cream);
+      font-family: var(--font);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #chart {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    /* ── Top left: brand, title, legend ── */
+    .head {
+      position: fixed;
+      top: 28px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .head .brand { pointer-events: auto; display: inline-block; }
+    .head .brand img { width: 150px; opacity: 0.55; display: block; }
+
+    .head h1 {
+      margin-top: 18px;
+      font-weight: 400;
+      font-size: 26px;
+      letter-spacing: 0.04em;
+      color: var(--cream);
+    }
+
+    .head .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(253, 229, 180, 0.62);
+    }
+
+    .legend {
+      margin-top: 14px;
+      display: flex;
+      gap: 18px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .legend i { width: 22px; height: 6px; border-radius: 3px; display: inline-block; }
+    .legend .k-nyc i { background: var(--amber); }
+    .legend .k-us i  { background: var(--cream); }
+
+    /* ── Top right: controls + readout ── */
+    .controls {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      height: 44px;
+      min-width: 44px;
+      padding: 0 14px;
+      border-radius: 12px;
+      background: rgba(36, 74, 105, 0.85);
+      border: 1px solid rgba(253, 229, 180, 0.14);
+      color: var(--cream);
+      font-family: var(--font);
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: lowercase;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .ctrl-btn:hover, .ctrl-btn:focus-visible {
+      border-color: rgba(243, 166, 39, 0.75);
+      background: rgba(36, 74, 105, 1);
+      outline: none;
+    }
+
+    .ctrl-btn[hidden] { display: none; }
+
+    .readout {
+      position: fixed;
+      top: 76px;
+      right: 32px;
+      z-index: 10;
+      text-align: right;
+      pointer-events: none;
+    }
+
+    .readout .year {
+      font-family: var(--font);
+      font-size: 72px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: var(--cream);
+    }
+
+    .readout .vals {
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .readout .vals .nyc { color: var(--amber); }
+    .readout .vals .us  { color: var(--cream); }
+    .readout .vals sup  { color: var(--orange); font-size: 10px; }
+    .readout .vals small { opacity: 0.6; font-size: 11px; }
+
+    .headline {
+      margin-top: 12px;
+      max-width: 300px;
+      margin-left: auto;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--paper);
+      opacity: 0;
+      transition: opacity 0.8s;
+    }
+
+    .headline.on { opacity: 1; }
+
+    /* ── Footnote strip under the timeline ── */
+    .notes-strip {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 40px;
+      z-index: 10;
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 16px;
+      gap: 22px;
+      padding: 0 32px;
+      background: var(--navy-deep);
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      color: rgba(253, 229, 180, 0.72);
+      opacity: 0;
+      transition: opacity 0.8s;
+      white-space: nowrap;
+      overflow: hidden;
     }
 
-    .brand {
+    .notes-strip.on { opacity: 1; }
+    .notes-strip sup { color: var(--orange); margin-right: 3px; }
+    .notes-strip button {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--amber);
+      font-family: var(--font);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+    }
+
+    /* ── Notes panel ── */
+    .panel {
       position: fixed;
-      top: 32px;
-      left: 36px;
+      top: 72px;
+      right: 16px;
+      width: min(440px, calc(100vw - 32px));
+      max-height: calc(100vh - 160px);
+      overflow-y: auto;
+      z-index: 30;
+      background: rgba(36, 74, 105, 0.97);
+      border: 1px solid rgba(253, 229, 180, 0.16);
+      border-radius: 14px;
+      padding: 22px 24px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: rgba(255, 236, 212, 0.88);
+      display: none;
     }
 
-    .brand img {
-      width: 220px;
-      max-width: 60vw;
-      opacity: 0.60;
-    }
-
-    .label {
-      text-align: center;
-      font-weight: 300;
+    .panel.open { display: block; }
+    .panel h2 {
+      font-weight: 400;
+      font-size: 12px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
+      color: var(--amber);
+      margin: 14px 0 6px;
     }
+    .panel h2:first-child { margin-top: 0; }
+    .panel p { margin-bottom: 8px; }
+    .panel sup { color: var(--orange); }
+    .panel a { color: var(--cream); }
 
-    .label .section {
-      font-size: 11px;
-      color: rgba(0, 195, 255, 0.42);
-    }
-
-    .label .name {
-      font-size: 28px;
-      color: rgba(80, 222, 255, 0.78);
-      line-height: 1.3;
-      letter-spacing: 0.22em;
-    }
-
-    .label .status {
-      margin-top: 14px;
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.35);
+    @media (max-width: 720px) {
+      .head { top: 18px; left: 16px; }
+      .head .brand img { width: 110px; }
+      .head h1 { font-size: 19px; margin-top: 12px; }
+      .head .sub { font-size: 10px; }
+      .legend { font-size: 11px; gap: 12px; }
+      .readout { top: 140px; left: 16px; right: auto; text-align: left; display: flex; align-items: baseline; gap: 14px; }
+      .readout .year { font-size: 36px; }
+      .readout .vals { font-size: 12px; margin-top: 0; line-height: 1.4; }
+      .headline { display: none; }
+      .notes-strip { display: none; }
+      .controls { top: 12px; right: 12px; }
+      .ctrl-btn { height: 38px; min-width: 38px; padding: 0 10px; font-size: 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="brand">
-    <a href="/"><img src="../../art/na-logo-long.svg" alt="netActiv"></a>
+  <canvas id="chart" aria-label="Animated line chart of New York City and United States homicide rates per 100,000 residents, 1960 to 2024"></canvas>
+
+  <div class="head">
+    <a class="brand" href="/"><img src="../../art/na-logo-long.svg" alt="netActiv"></a>
+    <h1>new york city homicide</h1>
+    <div class="sub">rate per 100,000 residents &middot; 1960&ndash;2024</div>
+    <div class="legend">
+      <span class="k-nyc"><i></i>new york city</span>
+      <span class="k-us"><i></i>united states</span>
+    </div>
   </div>
 
-  <div class="label">
-    <div class="section">netActiv &middot; analytical</div>
-    <div class="name">nyc crime</div>
-    <div class="status">in development</div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-skip" type="button">skip &rsaquo;&rsaquo;</button>
+    <button class="ctrl-btn" id="btn-replay" type="button" hidden>replay</button>
+    <button class="ctrl-btn" id="btn-notes" type="button" aria-expanded="false">notes</button>
   </div>
+
+  <div class="readout" aria-live="off">
+    <div class="year" id="r-year">1960</div>
+    <div class="vals">
+      <div class="nyc" id="r-nyc"></div>
+      <div class="us" id="r-us"></div>
+    </div>
+    <div class="headline" id="headline"></div>
+  </div>
+
+  <div class="notes-strip" id="strip">
+    <span><sup>1</sup>1960s NYPD figures likely undercounted</span>
+    <span><sup>2</sup>2021 NYC figure from NYPD, not FBI</span>
+    <span><sup>3</sup>US 2023&ndash;24 provisional</span>
+    <button type="button" id="btn-notes-2">sources &amp; notes</button>
+  </div>
+
+  <div class="panel" id="panel" role="dialog" aria-label="Notes and sources">
+    <h2>What is counted</h2>
+    <p>Murder and non-negligent manslaughter, as defined by the FBI Uniform Crime Reporting program, per 100,000 residents. Rates use the population figure reported alongside each count.</p>
+    <h2>Notes</h2>
+    <p><sup>1</sup> 1960&ndash;1967: the NYPD's own crime reporting in this period is documented as unreliable (Chronopoulos, <em>Journal of Urban History</em>, 2015). The figures likely undercount crime, which makes the early baseline look safer than it was. Homicide is the category least affected, which is why it is shown here.</p>
+    <p><sup>2</sup> 2021: the NYPD submitted no data to the FBI during the switch to the National Incident-Based Reporting System. The 2021 figure (488) is the NYPD's year-end count.</p>
+    <p><sup>3</sup> US 2023&ndash;2024: FBI national estimates taken from a secondary copy of the Crime Data Explorer file. Provisional until checked against the FBI release.</p>
+    <h2>Sources</h2>
+    <p>New York City, 1960&ndash;2024: FBI UCR Return A as reported by the NYPD, via Jacob Kaplan's concatenated UCR files (<a href="https://www.openicpsr.org/openicpsr/project/100707" target="_blank" rel="noopener">openICPSR 100707</a>).</p>
+    <p>United States, 1960&ndash;1978: FBI Uniform Crime Reports, published national estimates. 1979&ndash;2024: FBI Crime Data Explorer national estimates.</p>
+  </div>
+
+  <script src="data.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const DATA = window.NYCCRIME_DATA;
+    const FIRST = DATA[0].y;
+    const LAST = DATA[DATA.length - 1].y;
+    const WINDOW = 10;          // years visible during the animation
+    const YEAR_MS = 850;        // one year of line drawing
+    const PAN_STEP_MS = 140;    // one timeline frame during a decade pan
+    const HOLD_MS = 900;
+    const SHRINK_MS = 1800;
+    const Y_MAX = 32;           // fixed vertical scale, per 100,000
+
+    const C = {
+      navy: '#305D81', navyDeep: '#244a69', teal: '#3B8290', sage: '#A5AB76',
+      cream: '#FDE5B4', amber: '#F3A627', orange: '#E46C34', paper: '#FFECD4'
+    };
+
+    const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font').trim();
+    const MONO = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim();
+
+    // Footnote markers on the timeline
+    const MARKS = [
+      { from: 1960, to: 1967, n: 1 },
+      { from: 2021, to: 2021, n: 2 },
+      { from: 2023, to: 2024, n: 3 }
+    ];
+
+    // ── Straight segments between yearly values (no smoothing: smoothing invents shape) ──
+    function linear(values) {
+      const n = values.length;
+      return function (x) {
+        if (x <= 0) return values[0];
+        if (x >= n - 1) return values[n - 1];
+        const i = Math.floor(x), t = x - i;
+        return values[i] + (values[i + 1] - values[i]) * t;
+      };
+    }
+
+    const fNyc = linear(DATA.map(d => d.nyc.rate));
+    const fUs = linear(DATA.map(d => d.us.rate));
+
+    // ── Canvas setup ──
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, DPR = 1, L = {};
+
+    function layout() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const narrow = W < 720;
+      const notesH = narrow ? 0 : 40;
+      const tlH = narrow ? 64 : 76;
+      L = {
+        narrow,
+        left: narrow ? 40 : 64,
+        right: W - (narrow ? 24 : 48),
+        top: narrow ? 210 : 190,
+        tlTop: H - notesH - tlH,
+        tlH,
+        notesH
+      };
+      L.bottom = L.tlTop - (narrow ? 20 : 28);
+    }
+
+    // ── State ──
+    const S = {
+      phase: 'sweep',   // sweep | pan | hold | shrink | static
+      t: FIRST,         // leading edge of the line, in years
+      d0: FIRST,        // visible domain
+      d1: FIRST + WINDOW,
+      winStart: FIRST,
+      phaseStart: 0,
+      lineW: 1,         // 1 = full thickness, eases down for the static view
+      hover: null,
+      shrinkFrom: null
+    };
+
+    const xOf = yr => L.left + (yr - S.d0) / (S.d1 - S.d0) * (L.right - L.left);
+    const yOf = v => L.bottom - (v / Y_MAX) * (L.bottom - L.top);
+    const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const rowFor = yr => DATA[Math.max(0, Math.min(DATA.length - 1, Math.round(yr) - FIRST))];
+
+    // ── Drawing ──
+    function drawGrid() {
+      ctx.lineWidth = 1;
+      ctx.font = `${L.narrow ? 10 : 11}px ${MONO}`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let v = 0; v <= 30; v += 10) {
+        const y = yOf(v);
+        ctx.strokeStyle = v === 0 ? 'rgba(253,229,180,0.30)' : 'rgba(253,229,180,0.10)';
+        ctx.beginPath(); ctx.moveTo(L.left, y); ctx.lineTo(L.right, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(253,229,180,0.55)';
+        ctx.fillText(String(v), L.left - 10, y);
+      }
+    }
+
+    function drawSeries(f, color, width, tEnd) {
+      const a = Math.max(FIRST, Math.floor(S.d0) - 1);
+      const b = Math.min(tEnd, S.d1 + 1);
+      if (b <= a) return;
+      ctx.beginPath();
+      ctx.moveTo(xOf(a), yOf(f(a - FIRST)));
+      for (let yr = a + 1; yr < b; yr++) ctx.lineTo(xOf(yr), yOf(f(yr - FIRST)));
+      ctx.lineTo(xOf(b), yOf(f(b - FIRST)));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    function glowDot(x, y, color, r, pulse) {
+      const halo = r * (3.4 + 0.5 * pulse);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, halo);
+      g.addColorStop(0, hexA(color, 0.55));
+      g.addColorStop(0.35, hexA(color, 0.22));
+      g.addColorStop(1, hexA(color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, halo, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,248,235,0.85)';
+      ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function hexA(hex, a) {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+
+    function dotLabels(x, yN, yU, vN, vU) {
+      ctx.font = `${L.narrow ? 11 : 13}px ${MONO}`;
+      ctx.textBaseline = 'middle';
+      let ln = yN, lu = yU;
+      if (Math.abs(ln - lu) < 22) {
+        const mid = (ln + lu) / 2;
+        if (ln <= lu) { ln = mid - 11; lu = mid + 11; } else { ln = mid + 11; lu = mid - 11; }
+      }
+      const right = x + 70 < L.right + 40;
+      ctx.textAlign = right ? 'left' : 'right';
+      const dx = right ? 20 : -20;
+      ctx.fillStyle = C.amber; ctx.fillText(vN.toFixed(1), x + dx, ln);
+      ctx.fillStyle = C.cream; ctx.fillText(vU.toFixed(1), x + dx, lu);
+    }
+
+    function drawTimeline(current) {
+      const top = L.tlTop, h = L.tlH;
+      ctx.fillStyle = C.navy;
+      ctx.fillRect(0, top, W, h);
+
+      const span = S.d1 - S.d0;
+      const pxPerYear = (L.right - L.left) / span;
+      const labelEvery = pxPerYear > 46 ? 1 : pxPerYear > 18 ? 5 : 10;
+      const lo = Math.max(FIRST, Math.floor(S.d0)), hi = Math.min(LAST, Math.ceil(S.d1));
+
+      // footnote bands
+      for (const m of MARKS) {
+        const xa = xOf(m.from - 0.5), xb = xOf(m.to + 0.5);
+        if (xb < 0 || xa > W) continue;
+        ctx.fillStyle = C.orange;
+        ctx.fillRect(xa + 1, top, Math.max(3, xb - xa - 2), 3);
+        ctx.fillStyle = C.orange;
+        ctx.font = `${L.narrow ? 10 : 11}px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(String(m.n), (xa + xb) / 2, top + 7);
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let yr = lo; yr <= hi; yr++) {
+        const x = xOf(yr);
+        if (x < -40 || x > W + 40) continue;
+        const major = yr % labelEvery === 0;
+        const isCur = current !== null && yr === current;
+        ctx.strokeStyle = isCur ? C.amber : major ? 'rgba(253,229,180,0.55)' : 'rgba(253,229,180,0.22)';
+        ctx.lineWidth = isCur ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(x, top + 20);
+        ctx.lineTo(x, top + (major ? 30 : 26));
+        ctx.stroke();
+        const nearCur = current !== null && !isCur && Math.abs(x - xOf(current)) < (L.narrow ? 30 : 44);
+        if ((major && !nearCur) || isCur) {
+          ctx.font = `${isCur ? 700 : 400} ${L.narrow ? 11 : 14}px ${FONT}`;
+          ctx.fillStyle = isCur ? C.amber : 'rgba(253,229,180,0.82)';
+          const label = (labelEvery === 1 || isCur) ? String(yr) : (L.narrow && labelEvery >= 5 ? "'" + String(yr).slice(2) : String(yr));
+          ctx.fillText(label, x, top + h / 2 + 10);
+        }
+      }
+    }
+
+    function draw(now) {
+      ctx.clearRect(0, 0, W, H);
+      drawGrid();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(L.left - 2, 0, L.right - L.left + 60, L.tlTop);
+      ctx.clip();
+
+      const wN = (L.narrow ? 6 : 8) * (0.55 + 0.45 * S.lineW);
+      const wU = (L.narrow ? 4 : 5) * (0.6 + 0.4 * S.lineW);
+      drawSeries(fUs, C.cream, wU, S.t);
+      drawSeries(fNyc, C.amber, wN, S.t);
+
+      const pulse = 0.5 + 0.5 * Math.sin(now / 420);
+      if (S.phase === 'static') {
+        const yr = S.hover !== null ? S.hover : LAST;
+        const x = xOf(yr);
+        const row = rowFor(yr);
+        ctx.strokeStyle = 'rgba(253,229,180,0.28)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath(); ctx.moveTo(x, L.top - 20); ctx.lineTo(x, L.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        glowDot(x, yOf(row.us.rate), C.cream, L.narrow ? 6 : 7, pulse);
+        glowDot(x, yOf(row.nyc.rate), C.amber, L.narrow ? 7 : 9, pulse);
+      } else {
+        const x = xOf(S.t);
+        const yN = yOf(fNyc(S.t - FIRST)), yU = yOf(fUs(S.t - FIRST));
+        const lr = rowFor(Math.floor(S.t + 1e-6));
+        const vN = lr.nyc.rate, vU = lr.us.rate;
+        if (x > L.left - 30 && x < W + 30) {
+          glowDot(x, yU, C.cream, L.narrow ? 7 : 8, pulse);
+          glowDot(x, yN, C.amber, L.narrow ? 8 : 11, pulse);
+          dotLabels(x, yN, yU, vN, vU);
+        }
+      }
+      ctx.restore();
+
+      const cur = S.phase === 'static' ? (S.hover !== null ? S.hover : LAST) : Math.floor(S.t + 1e-6);
+      drawTimeline(cur);
+    }
+
+    // ── Readout ──
+    const elYear = document.getElementById('r-year');
+    const elNyc = document.getElementById('r-nyc');
+    const elUs = document.getElementById('r-us');
+    let lastShown = null;
+
+    function sup(n) { return `<sup>${n}</sup>`; }
+
+    function showReadout(yr) {
+      if (yr === lastShown) return;
+      lastShown = yr;
+      const row = rowFor(yr);
+      elYear.textContent = String(row.y);
+      const nNote = row.y <= 1967 ? sup(1) : row.nyc.src === 'nypd' ? sup(2) : '';
+      const uNote = row.us.src === 'prov' ? sup(3) : '';
+      elNyc.innerHTML = `nyc ${row.nyc.rate.toFixed(1)}${nNote} <small>(${row.nyc.n.toLocaleString()})</small>`;
+      elUs.innerHTML = `us ${row.us.rate.toFixed(1)}${uNote} <small>(${row.us.n.toLocaleString()})</small>`;
+    }
+
+    // ── Sequencer ──
+    function setPhase(p, now) { S.phase = p; S.phaseStart = now; }
+
+    function tick(now) {
+      const el = now - S.phaseStart;
+
+      if (S.phase === 'sweep') {
+        const end = Math.min(S.winStart + WINDOW, LAST);
+        const dur = (end - S.winStart) * YEAR_MS;
+        S.t = S.winStart + Math.min(1, el / dur) * (end - S.winStart);
+        S.d0 = S.winStart; S.d1 = S.winStart + WINDOW;
+        if (el >= dur) {
+          S.t = end;
+          if (end < LAST && end + WINDOW <= LAST + WINDOW) setPhase('pan', now);
+          else setPhase('hold', now);
+        }
+      } else if (S.phase === 'pan') {
+        const steps = WINDOW;
+        const k = Math.min(steps, el / PAN_STEP_MS);
+        const whole = Math.floor(k), frac = k - whole;
+        const off = whole + (whole < steps ? ease(frac) : 0);
+        S.d0 = S.winStart + off; S.d1 = S.d0 + WINDOW;
+        if (k >= steps) {
+          S.winStart += WINDOW;
+          S.d0 = S.winStart; S.d1 = S.winStart + WINDOW;
+          setPhase('sweep', now);
+        }
+      } else if (S.phase === 'hold') {
+        if (el >= HOLD_MS) {
+          S.shrinkFrom = { d0: S.d0, d1: S.d1 };
+          setPhase('shrink', now);
+        }
+      } else if (S.phase === 'shrink') {
+        const p = ease(Math.min(1, el / S.shrinkMs));
+        S.d0 = S.shrinkFrom.d0 + (FIRST - S.shrinkFrom.d0) * p;
+        S.d1 = S.shrinkFrom.d1 + (LAST - S.shrinkFrom.d1) * p;
+        S.lineW = 1 - p;
+        S.t = LAST;
+        if (p >= 1) goStatic();
+      }
+
+      if (S.phase === 'static') showReadout(S.hover !== null ? S.hover : LAST);
+      else showReadout(Math.floor(S.t + 1e-6));
+
+      draw(now);
+      requestAnimationFrame(tick);
+    }
+
+    // ── Static mode ──
+    const btnSkip = document.getElementById('btn-skip');
+    const btnReplay = document.getElementById('btn-replay');
+    const strip = document.getElementById('strip');
+    const headline = document.getElementById('headline');
+
+    function goStatic() {
+      S.phase = 'static';
+      S.d0 = FIRST; S.d1 = LAST; S.t = LAST; S.lineW = 0;
+      btnSkip.hidden = true;
+      btnReplay.hidden = false;
+      strip.classList.add('on');
+      const a = rowFor(LAST), b = rowFor(FIRST);
+      const parts = [`In ${a.y}, New York City's rate was ${a.nyc.rate.toFixed(1)}`];
+      if (a.nyc.rate < a.us.rate) parts.push(`below the national rate of ${a.us.rate.toFixed(1)}`);
+      if (a.nyc.rate < b.nyc.rate) parts.push(`and below the city's own ${b.y} rate of ${b.nyc.rate.toFixed(1)}`);
+      headline.textContent = parts.join(', ') + '.';
+      headline.classList.add('on');
+    }
+
+    function skip() {
+      if (S.phase === 'static' || S.phase === 'shrink') return;
+      S.shrinkFrom = { d0: S.d0, d1: S.d1 };
+      S.t = LAST;
+      S.shrinkMs = 900;
+      setPhase('shrink', performance.now());
+    }
+
+    function replay() {
+      S.hover = null;
+      S.t = FIRST; S.winStart = FIRST; S.d0 = FIRST; S.d1 = FIRST + WINDOW; S.lineW = 1;
+      S.shrinkMs = SHRINK_MS;
+      btnSkip.hidden = false;
+      btnReplay.hidden = true;
+      strip.classList.remove('on');
+      headline.classList.remove('on');
+      lastShown = null;
+      setPhase('sweep', performance.now());
+    }
+
+    btnSkip.addEventListener('click', skip);
+    btnReplay.addEventListener('click', replay);
+
+    // ── Hover / touch navigation in static mode ──
+    function pointerYear(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      if (x < L.left - 20 || x > L.right + 20) return null;
+      const yr = S.d0 + (x - L.left) / (L.right - L.left) * (S.d1 - S.d0);
+      return Math.max(FIRST, Math.min(LAST, Math.round(yr)));
+    }
+
+    canvas.addEventListener('pointermove', e => {
+      if (S.phase !== 'static') return;
+      S.hover = pointerYear(e);
+    });
+    canvas.addEventListener('pointerdown', e => {
+      if (S.phase !== 'static') return;
+      S.hover = pointerYear(e);
+    });
+    canvas.addEventListener('pointerleave', e => {
+      if (e.pointerType === 'mouse') S.hover = null;
+    });
+
+    window.addEventListener('keydown', e => {
+      if (S.phase !== 'static') {
+        if (e.key === 'Escape') skip();
+        return;
+      }
+      const cur = S.hover !== null ? S.hover : LAST;
+      if (e.key === 'ArrowLeft') S.hover = Math.max(FIRST, cur - 1);
+      if (e.key === 'ArrowRight') S.hover = Math.min(LAST, cur + 1);
+    });
+
+    // ── Notes panel ──
+    const panel = document.getElementById('panel');
+    const btnNotes = document.getElementById('btn-notes');
+    function togglePanel() {
+      const open = panel.classList.toggle('open');
+      btnNotes.setAttribute('aria-expanded', String(open));
+    }
+    btnNotes.addEventListener('click', togglePanel);
+    document.getElementById('btn-notes-2').addEventListener('click', togglePanel);
+
+    // ── Start ──
+    window.addEventListener('resize', layout);
+    layout();
+    S.shrinkMs = SHRINK_MS;
+    S.phaseStart = performance.now();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) goStatic();
+    requestAnimationFrame(tick);
+  })();
+  </script>
 </body>
 </html>
