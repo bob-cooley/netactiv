@@ -304,7 +304,8 @@
     const LAST = DATA[DATA.length - 1].y;
     const WINDOW = 10;          // years visible during the animation
     const YEAR_MS = 680;        // one year of line drawing (850 / 1.25)
-    const PAN_MS = 1280;        // one continuous decade pan (1600 / 1.25)
+    const PAN_IN = 6;           // years drawn before the view starts to move
+    const PAN_FULL = 10;        // years drawn when the view reaches full speed
     const HOLD_MS = 900;
     const SHRINK_MS = 1800;
     const Y_MAX = 32;           // fixed vertical scale, per 100,000
@@ -371,8 +372,6 @@
       t: FIRST,         // leading edge of the line, in years
       d0: FIRST,        // visible domain
       d1: FIRST + WINDOW,
-      winStart: FIRST,
-      panStart: null,   // set while a decade pan is running
       phaseStart: 0,
       lineW: 1,         // 1 = full thickness, eases down for the static view
       hover: null,
@@ -567,21 +566,17 @@
       const el = now - S.phaseStart;
 
       if (S.phase === 'sweep') {
-        // The data line never pauses: t advances at a constant rate for the whole run,
-        // and the decade pan happens underneath it while the dot keeps drawing.
+        // One continuous pan across the whole range. The dot draws in from the left;
+        // between PAN_IN and PAN_FULL years the view eases up to the dot's speed, then
+        // follows it with the dot resting at (PAN_IN + PAN_FULL) / 2 years across the window.
         S.t = Math.min(LAST, FIRST + el / YEAR_MS);
-        if (S.panStart === null && S.t >= S.winStart + WINDOW && S.winStart + WINDOW < LAST) {
-          S.panStart = now;
-        }
-        if (S.panStart !== null) {
-          const p = Math.min(1, (now - S.panStart) / PAN_MS);
-          S.d0 = S.winStart + WINDOW * (0.5 - 0.5 * Math.cos(Math.PI * p));
-          if (p >= 1) { S.winStart += WINDOW; S.d0 = S.winStart; S.panStart = null; }
-        } else {
-          S.d0 = S.winStart;
-        }
+        const x = S.t - FIRST;
+        let f = 0;
+        if (x > PAN_FULL) f = x - (PAN_IN + PAN_FULL) / 2;
+        else if (x > PAN_IN) f = (x - PAN_IN) * (x - PAN_IN) / (2 * (PAN_FULL - PAN_IN));
+        S.d0 = FIRST + f;
         S.d1 = S.d0 + WINDOW;
-        if (S.t >= LAST && S.panStart === null) setPhase('hold', now);
+        if (S.t >= LAST) setPhase('hold', now);
       } else if (S.phase === 'hold') {
         if (el >= HOLD_MS) {
           S.shrinkFrom = { d0: S.d0, d1: S.d1 };
@@ -633,7 +628,7 @@
 
     function replay() {
       S.hover = null;
-      S.t = FIRST; S.winStart = FIRST; S.panStart = null; S.d0 = FIRST; S.d1 = FIRST + WINDOW; S.lineW = 1;
+      S.t = FIRST; S.d0 = FIRST; S.d1 = FIRST + WINDOW; S.lineW = 1;
       S.shrinkMs = SHRINK_MS;
       btnSkip.hidden = false;
       btnReplay.hidden = true;
