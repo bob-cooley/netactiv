@@ -67,6 +67,9 @@ jobs:
           protocol: ftps
           local-dir: ./
           server-dir: public_html/netactiv/
+          # New state file name forces one full re-upload with no deletions.
+          # The previous state listed "Pet Browser" files already gone from the server (550 errors).
+          state-name: .ftp-deploy-sync-state-v2.json
           log-level: verbose
           dangerous-clean-slate: false
           exclude: |
