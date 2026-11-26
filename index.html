@@ -202,6 +202,19 @@
   <script type="module" src="neuro/neuro.js?v=10"></script>
   <script src="intro.js"></script>
   <script src="home-globe.js"></script>
+  <script>
+    (function () {
+      var logo = document.querySelector('.logo');
+      if (!logo) return;
+      var hits = [];
+      logo.addEventListener('click', function () {
+        var now = Date.now();
+        hits.push(now);
+        hits = hits.filter(function (t) { return now - t < 10000; });
+        if (hits.length >= 6) location.href = '/subsites/';
+      });
+    })();
+  </script>
 </body>
 </html>
 
