@@ -304,7 +304,7 @@
     const LAST = DATA[DATA.length - 1].y;
     const WINDOW = 10;          // years visible during the animation
     const YEAR_MS = 850;        // one year of line drawing
-    const PAN_STEP_MS = 140;    // one timeline frame during a decade pan
+    const PAN_MS = 1600;        // one continuous decade pan
     const HOLD_MS = 900;
     const SHRINK_MS = 1800;
     const Y_MAX = 32;           // fixed vertical scale, per 100,000
@@ -576,12 +576,10 @@
           else setPhase('hold', now);
         }
       } else if (S.phase === 'pan') {
-        const steps = WINDOW;
-        const k = Math.min(steps, el / PAN_STEP_MS);
-        const whole = Math.floor(k), frac = k - whole;
-        const off = whole + (whole < steps ? ease(frac) : 0);
+        const p = Math.min(1, el / PAN_MS);
+        const off = WINDOW * (0.5 - 0.5 * Math.cos(Math.PI * p));   // single ease across the whole pan
         S.d0 = S.winStart + off; S.d1 = S.d0 + WINDOW;
-        if (k >= steps) {
+        if (p >= 1) {
           S.winStart += WINDOW;
           S.d0 = S.winStart; S.d1 = S.winStart + WINDOW;
           setPhase('sweep', now);
