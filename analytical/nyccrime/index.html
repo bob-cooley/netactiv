@@ -367,11 +367,12 @@
 
     // ── State ──
     const S = {
-      phase: 'sweep',   // sweep | pan | hold | shrink | static
+      phase: 'sweep',   // sweep | hold | shrink | static
       t: FIRST,         // leading edge of the line, in years
       d0: FIRST,        // visible domain
       d1: FIRST + WINDOW,
       winStart: FIRST,
+      panStart: null,   // set while a decade pan is running
       phaseStart: 0,
       lineW: 1,         // 1 = full thickness, eases down for the static view
       hover: null,
@@ -566,24 +567,21 @@
       const el = now - S.phaseStart;
 
       if (S.phase === 'sweep') {
-        const end = Math.min(S.winStart + WINDOW, LAST);
-        const dur = (end - S.winStart) * YEAR_MS;
-        S.t = S.winStart + Math.min(1, el / dur) * (end - S.winStart);
-        S.d0 = S.winStart; S.d1 = S.winStart + WINDOW;
-        if (el >= dur) {
-          S.t = end;
-          if (end < LAST && end + WINDOW <= LAST + WINDOW) setPhase('pan', now);
-          else setPhase('hold', now);
+        // The data line never pauses: t advances at a constant rate for the whole run,
+        // and the decade pan happens underneath it while the dot keeps drawing.
+        S.t = Math.min(LAST, FIRST + el / YEAR_MS);
+        if (S.panStart === null && S.t >= S.winStart + WINDOW && S.winStart + WINDOW < LAST) {
+          S.panStart = now;
         }
-      } else if (S.phase === 'pan') {
-        const p = Math.min(1, el / PAN_MS);
-        const off = WINDOW * (0.5 - 0.5 * Math.cos(Math.PI * p));   // single ease across the whole pan
-        S.d0 = S.winStart + off; S.d1 = S.d0 + WINDOW;
-        if (p >= 1) {
-          S.winStart += WINDOW;
-          S.d0 = S.winStart; S.d1 = S.winStart + WINDOW;
-          setPhase('sweep', now);
+        if (S.panStart !== null) {
+          const p = Math.min(1, (now - S.panStart) / PAN_MS);
+          S.d0 = S.winStart + WINDOW * (0.5 - 0.5 * Math.cos(Math.PI * p));
+          if (p >= 1) { S.winStart += WINDOW; S.d0 = S.winStart; S.panStart = null; }
+        } else {
+          S.d0 = S.winStart;
         }
+        S.d1 = S.d0 + WINDOW;
+        if (S.t >= LAST && S.panStart === null) setPhase('hold', now);
       } else if (S.phase === 'hold') {
         if (el >= HOLD_MS) {
           S.shrinkFrom = { d0: S.d0, d1: S.d1 };
@@ -635,7 +633,7 @@
 
     function replay() {
       S.hover = null;
-      S.t = FIRST; S.winStart = FIRST; S.d0 = FIRST; S.d1 = FIRST + WINDOW; S.lineW = 1;
+      S.t = FIRST; S.winStart = FIRST; S.panStart = null; S.d0 = FIRST; S.d1 = FIRST + WINDOW; S.lineW = 1;
       S.shrinkMs = SHRINK_MS;
       btnSkip.hidden = false;
       btnReplay.hidden = true;
