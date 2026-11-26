@@ -263,6 +263,7 @@
   <div class="controls">
     <button class="ctrl-btn" id="btn-skip" type="button">skip &rsaquo;&rsaquo;</button>
     <button class="ctrl-btn" id="btn-replay" type="button" hidden>replay</button>
+    <button class="ctrl-btn" id="btn-sound" type="button" aria-pressed="false">sound off</button>
     <button class="ctrl-btn" id="btn-notes" type="button" aria-expanded="false">notes</button>
   </div>
 
@@ -289,12 +290,17 @@
     <p><sup>1</sup> 1960&ndash;1967: the NYPD's own crime reporting in this period is documented as unreliable (Chronopoulos, <em>Journal of Urban History</em>, 2015). The figures likely undercount crime, which makes the early baseline look safer than it was. Homicide is the category least affected, which is why it is shown here.</p>
     <p><sup>2</sup> 2021: the NYPD submitted no data to the FBI during the switch to the National Incident-Based Reporting System. The 2021 figure (488) is the NYPD's year-end count.</p>
     <p><sup>3</sup> US 2023&ndash;2024: FBI national estimates taken from a secondary copy of the Crime Data Explorer file. Provisional until checked against the FBI release.</p>
+    <h2>Sound</h2>
+    <p>Each year plays one note per line, in the key of E. New York City is a double bass and is inverted: a higher homicide rate plays a lower note, so the worst years sit at the bottom of the instrument. The United States is a cello and is not inverted: a higher rate plays a higher note. Both lines use the same step, one scale step per 2 homicides per 100,000, so the size of each line's movement is directly comparable.</p>
+    <p>The scale darkens as the rate rises: E major under 8 per 100,000, E natural minor from 8 to 16, E Phrygian from 16 to 24, and E Locrian above 24. Listener studies rate modes with lowered scale notes as less happy and more tense (Temperley and Tan; Bostwick et al.).</p>
     <h2>Sources</h2>
     <p>New York City, 1960&ndash;2024: FBI UCR Return A as reported by the NYPD, via Jacob Kaplan's concatenated UCR files (<a href="https://www.openicpsr.org/openicpsr/project/100707" target="_blank" rel="noopener">openICPSR 100707</a>).</p>
     <p>United States, 1960&ndash;1978: FBI Uniform Crime Reports, published national estimates. 1979&ndash;2024: FBI Crime Data Explorer national estimates.</p>
+    <p>Audio: double bass samples from the VSCO 2 Community Edition (CC0); cello samples by flcellogrl via <a href="https://freesound.org/people/flcellogrl/packs/12408/" target="_blank" rel="noopener">Freesound</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>), prepared by Nicholas Brosowsky's <a href="https://github.com/nbrosowsky/tonejs-instruments" target="_blank" rel="noopener">tonejs-instruments</a>. Playback by <a href="https://github.com/Tonejs/Tone.js" target="_blank" rel="noopener">Tone.js</a> (MIT).</p>
   </div>
 
   <script src="data.js"></script>
+  <script src="vendor/tone-15.1.22.min.js" defer></script>
   <script>
   (function () {
     'use strict';
@@ -551,6 +557,7 @@
     function showReadout(yr) {
       if (yr === lastShown) return;
       lastShown = yr;
+      if (S.phase === 'sweep' || S.phase === 'static') playYear(yr);
       const row = rowFor(yr);
       elYear.textContent = String(row.y);
       const nNote = row.y <= 1967 ? sup(1) : row.nyc.src === 'nypd' ? sup(2) : '';
@@ -639,6 +646,87 @@
     }
 
     btnSkip.addEventListener('click', skip);
+
+    // ── Sound ──
+    // Key of E. One scale step per STEP homicides per 100,000, the same for both lines.
+    // NYC = double bass, inverted (higher rate -> lower note), worst years near E1.
+    // US = cello, not inverted, starting from E4.
+    // The scale darkens with the line's own rate: major, natural minor, Phrygian, Locrian.
+    const STEP = 2;
+    const BASS_TOP_RATE = 31;          // rate that maps to the bass's lowest note
+    const BASS_ROOT = 28;              // E1 (MIDI)
+    const CELLO_ROOT = 64;             // E4 (MIDI)
+    const MODES = [
+      { max: 8, steps: [0, 2, 4, 5, 7, 9, 11] },          // Ionian (major)
+      { max: 16, steps: [0, 2, 3, 5, 7, 8, 10] },         // Aeolian (natural minor)
+      { max: 24, steps: [0, 1, 3, 5, 7, 8, 10] },         // Phrygian
+      { max: Infinity, steps: [0, 1, 3, 5, 6, 8, 10] }    // Locrian
+    ];
+    const modeFor = rate => MODES.find(m => rate < m.max).steps;
+    const degreeToMidi = (root, deg, steps) => root + 12 * Math.floor(deg / 7) + steps[deg % 7];
+
+    function bassMidi(rate) {
+      const deg = Math.max(0, Math.round((BASS_TOP_RATE - rate) / STEP));
+      return degreeToMidi(BASS_ROOT, deg, modeFor(rate));
+    }
+    function celloMidi(rate) {
+      const deg = Math.max(0, Math.round(rate / STEP));
+      return degreeToMidi(CELLO_ROOT, deg, modeFor(rate));
+    }
+
+    const btnSound = document.getElementById('btn-sound');
+    const A = { on: false, loading: false, ready: false, bass: null, cello: null };
+
+    function samplerUrls(names) {
+      const o = {};
+      for (const n of names) o[n.replace('s', '#')] = n + '.mp3';
+      return o;
+    }
+
+    async function initAudio() {
+      A.loading = true;
+      btnSound.textContent = 'loading…';
+      await Tone.start();
+      const reverb = new Tone.Reverb({ decay: 3.2, wet: 0.22 }).toDestination();
+      A.bass = new Tone.Sampler({
+        urls: samplerUrls(['Fs1', 'G1', 'As1', 'C2', 'D2', 'E2', 'Fs2', 'Gs2', 'A2', 'Cs3', 'E3', 'Gs3', 'B3']),
+        baseUrl: 'audio/contrabass/',
+        release: 1.2
+      }).connect(reverb);
+      A.cello = new Tone.Sampler({
+        urls: samplerUrls(['A3', 'As3', 'B3', 'C4', 'Cs4', 'D4', 'Ds4', 'E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'B4', 'C5']),
+        baseUrl: 'audio/cello/',
+        release: 1.0
+      }).connect(reverb);
+      A.cello.volume.value = -5;
+      await Tone.loaded();
+      A.ready = true;
+      A.loading = false;
+    }
+
+    function playYear(yr) {
+      if (!A.on || !A.ready) return;
+      const row = rowFor(yr);
+      const dur = S.phase === 'static' ? 0.7 : (YEAR_MS / 1000) * 1.15;
+      const now = Tone.now();
+      const vN = 0.5 + 0.45 * Math.min(1, row.nyc.rate / BASS_TOP_RATE);
+      const vU = 0.45 + 0.4 * Math.min(1, row.us.rate / BASS_TOP_RATE);
+      A.bass.triggerAttackRelease(Tone.Frequency(bassMidi(row.nyc.rate), 'midi').toNote(), dur, now, vN);
+      A.cello.triggerAttackRelease(Tone.Frequency(celloMidi(row.us.rate), 'midi').toNote(), dur, now, vU);
+    }
+
+    btnSound.addEventListener('click', async () => {
+      if (A.loading) return;
+      if (!window.Tone) { btnSound.textContent = 'sound unavailable'; return; }
+      if (!A.ready) {
+        try { await initAudio(); }
+        catch (err) { A.loading = false; btnSound.textContent = 'sound unavailable'; return; }
+      }
+      A.on = !A.on;
+      Tone.getDestination().mute = !A.on;
+      btnSound.textContent = A.on ? 'sound on' : 'sound off';
+      btnSound.setAttribute('aria-pressed', String(A.on));
+    });
     btnReplay.addEventListener('click', replay);
 
     // ── Hover / touch navigation in static mode ──
