@@ -20,3 +20,8 @@
   something live, merging `main` needs a judgment call, Bob said the work is
   experimental or in progress, or the change deletes data or touches
   credentials.
+
+- Never alter Bob's logos in any way: no opacity, filters, blend modes,
+  recoloring, tinting or tonal adjustment to fit a page palette. Use the
+  logo file as-is. The current site logo is `art/2026-logo_longw-tag.png`
+  (the homepage logo); use it unless Bob specifies another.
